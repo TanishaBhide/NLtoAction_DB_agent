@@ -1,0 +1,175 @@
+{
+  "project": "NL-to-Action Database Agent",
+  "database": "online_retail_db",
+  "tables": [
+    {
+      "name": "customers",
+      "description": "One row per customer in the operational retail database.",
+      "primary_key": ["customer_id"],
+      "columns": [
+        {
+          "name": "customer_id",
+          "type": "VARCHAR(20)",
+          "description": "Unique customer identifier from the source retail dataset.",
+          "keywords": ["customer", "buyer", "client", "id"]
+        },
+        {
+          "name": "country",
+          "type": "VARCHAR(100)",
+          "description": "Country associated with the customer.",
+          "keywords": ["country", "location", "region", "nation"],
+          "known_values": [
+            "Australia",
+            "Austria",
+            "Bahrain",
+            "Belgium",
+            "Brazil",
+            "Canada",
+            "Channel Islands",
+            "Cyprus",
+            "Czech Republic",
+            "Denmark",
+            "EIRE",
+            "European Community",
+            "Finland",
+            "France",
+            "Germany",
+            "Greece",
+            "Hong Kong",
+            "Iceland",
+            "Israel",
+            "Italy",
+            "Japan",
+            "Lebanon",
+            "Lithuania",
+            "Malta",
+            "Netherlands",
+            "Norway",
+            "Poland",
+            "Portugal",
+            "RSA",
+            "Saudi Arabia",
+            "Singapore",
+            "Spain",
+            "Sweden",
+            "Switzerland",
+            "USA",
+            "United Arab Emirates",
+            "United Kingdom",
+            "Unspecified"
+          ]
+        }
+      ],
+      "keywords": ["customer", "buyer", "country", "client", "address book"]
+    },
+    {
+      "name": "products",
+      "description": "One row per stock code or product sold in the retail dataset.",
+      "primary_key": ["stock_code"],
+      "columns": [
+        {
+          "name": "stock_code",
+          "type": "VARCHAR(50)",
+          "description": "Unique product or stock identifier.",
+          "keywords": ["product", "item", "stock", "sku", "code"]
+        },
+        {
+          "name": "description",
+          "type": "VARCHAR(255)",
+          "description": "Human-readable product description.",
+          "keywords": ["description", "name", "product name", "item label"]
+        }
+      ],
+      "keywords": ["product", "item", "stock code", "sku", "catalog"]
+    },
+    {
+      "name": "invoices",
+      "description": "Invoice header table with one row per invoice.",
+      "primary_key": ["invoice_no"],
+      "foreign_keys": [
+        {
+          "columns": ["customer_id"],
+          "references": "customers(customer_id)"
+        }
+      ],
+      "columns": [
+        {
+          "name": "invoice_no",
+          "type": "VARCHAR(20)",
+          "description": "Unique invoice number.",
+          "keywords": ["invoice", "order", "bill", "transaction"]
+        },
+        {
+          "name": "invoice_date",
+          "type": "TIMESTAMP",
+          "description": "Date and time when the invoice was created.",
+          "keywords": ["date", "timestamp", "time", "created"]
+        },
+        {
+          "name": "customer_id",
+          "type": "VARCHAR(20)",
+          "description": "Customer that owns the invoice.",
+          "keywords": ["customer", "buyer", "client"]
+        }
+      ],
+      "keywords": ["invoice", "order header", "sales bill", "transaction header"]
+    },
+    {
+      "name": "invoice_items",
+      "description": "Invoice line items linking invoices to products.",
+      "primary_key": ["invoice_item_id"],
+      "foreign_keys": [
+        {
+          "columns": ["invoice_no"],
+          "references": "invoices(invoice_no)"
+        },
+        {
+          "columns": ["stock_code"],
+          "references": "products(stock_code)"
+        }
+      ],
+      "columns": [
+        {
+          "name": "invoice_item_id",
+          "type": "BIGINT",
+          "description": "Surrogate key for each line item.",
+          "keywords": ["line item", "row id", "surrogate key"]
+        },
+        {
+          "name": "invoice_no",
+          "type": "VARCHAR(20)",
+          "description": "Invoice that owns the line item.",
+          "keywords": ["invoice", "order", "bill"]
+        },
+        {
+          "name": "stock_code",
+          "type": "VARCHAR(50)",
+          "description": "Product sold on the invoice line.",
+          "keywords": ["product", "item", "stock code", "sku"]
+        },
+        {
+          "name": "quantity",
+          "type": "INTEGER",
+          "description": "Quantity sold or returned on the line item.",
+          "keywords": ["quantity", "count", "units", "amount"]
+        },
+        {
+          "name": "unit_price",
+          "type": "NUMERIC(10,2)",
+          "description": "Unit price used on the invoice line.",
+          "keywords": ["price", "unit price", "amount", "cost"]
+        }
+      ],
+      "keywords": ["invoice line", "order line", "detail", "line item"]
+    }
+  ],
+  "relationships": [
+    "customers 1-to-many invoices",
+    "invoices 1-to-many invoice_items",
+    "products 1-to-many invoice_items"
+  ],
+  "notes": [
+    "The metadata is intentionally structured so it can be embedded, searched, and later replaced by a vector database.",
+    "Week 2 focuses on schema retrieval, so the metadata emphasizes table purpose, primary keys, foreign keys, and column semantics."
+  ]
+}
