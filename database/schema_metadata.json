@@ -110,6 +110,13 @@
           "type": "VARCHAR(20)",
           "description": "Customer that owns the invoice.",
           "keywords": ["customer", "buyer", "client"]
+        },
+        {
+          "name": "status",
+          "type": "VARCHAR(20)",
+          "description": "Invoice status derived from the InvoiceNo prefix: 'C' = cancelled, 'A' = adjustment (bad-debt write-off), otherwise completed.",
+          "keywords": ["status", "cancelled", "canceled", "cancellation", "adjustment", "completed"],
+          "known_values": ["completed", "cancelled", "adjustment"]
         }
       ],
       "keywords": ["invoice", "order header", "sales bill", "transaction header"]

@@ -1,0 +1,91 @@
+[
+  {
+    "id": "H01",
+    "turns": ["erase invoice 536370"],
+    "expect": {"action_type": ["write"], "intent": ["delete_record"], "is_destructive": true,
+               "constraints": [{"column": "invoice_no", "operator": "=", "value": "536370"}]}
+  },
+  {
+    "id": "H02",
+    "turns": ["how many customers did we remove this year"],
+    "expect": {"action_type": ["read"], "intent": ["aggregate_count"], "is_destructive": false}
+  },
+  {
+    "id": "H03",
+    "turns": ["change customer 13047's country to Italy"],
+    "expect": {"action_type": ["write"], "intent": ["update_record"],
+               "constraints": [{"column": "customer_id", "operator": "=", "value": "13047"}],
+               "set_values": {"country": "Italy"}}
+  },
+  {
+    "id": "H04",
+    "turns": ["update the description for stock code 22752 to 'NESTING BOXES'"],
+    "expect": {"action_type": ["write"], "intent": ["update_record"],
+               "constraints": [{"column": "stock_code", "operator": "=", "value": "22752"}],
+               "set_values": {"description": "NESTING BOXES"}}
+  },
+  {
+    "id": "H05",
+    "turns": ["show invoice items with unit price at least 10"],
+    "expect": {"action_type": ["read"],
+               "constraints": [{"column": "unit_price", "operator": ">=", "value": 10}]}
+  },
+  {
+    "id": "H06",
+    "turns": ["list invoices before 2011-01-01"],
+    "expect": {"action_type": ["read"],
+               "constraints": [{"column": "invoice_date", "operator": "<", "value": "2011-01-01"}]}
+  },
+  {
+    "id": "H07",
+    "turns": ["customers located in Spain"],
+    "expect": {"action_type": ["read"],
+               "constraints": [{"column": "country", "operator": "=", "value": "Spain"}]}
+  },
+  {
+    "id": "H08",
+    "turns": ["total quantity per product"],
+    "expect": {"action_type": ["read"], "intent": ["aggregate_sum"]}
+  },
+  {
+    "id": "H09",
+    "turns": ["how many invoices per country"],
+    "expect": {"action_type": ["read"], "intent": ["aggregate_count"]}
+  },
+  {
+    "id": "H10",
+    "turns": ["drop table products"],
+    "expect": {"action_type": ["ddl"], "intent": ["drop_table"], "is_destructive": true}
+  },
+  {
+    "id": "H11",
+    "turns": ["empty the customers table"],
+    "expect": {"action_type": ["ddl", "write"], "intent": ["truncate_table", "delete_record"], "is_destructive": true}
+  },
+  {
+    "id": "H12",
+    "turns": ["show cancelled invoices"],
+    "expect": {"action_type": ["read"],
+               "constraints": [{"column": "status", "operator": "=", "value": "cancelled"}]}
+  },
+  {
+    "id": "H13",
+    "turns": ["list adjustment invoices from 2011"],
+    "expect": {"action_type": ["read"],
+               "constraints": [{"column": "status", "operator": "=", "value": "adjustment"},
+                               {"column": "invoice_date", "operator": "year", "value": 2011}]}
+  },
+  {
+    "id": "H14",
+    "turns": ["show invoices from France", "only the ones from 2011"],
+    "expect": {"action_type": ["read"],
+               "constraints": [{"column": "country", "operator": "=", "value": "France"},
+                               {"column": "invoice_date", "operator": "year", "value": 2011}]}
+  },
+  {
+    "id": "H15",
+    "turns": ["invoice items with quantity below 0"],
+    "expect": {"action_type": ["read"],
+               "constraints": [{"column": "quantity", "operator": "<", "value": 0}]}
+  }
+]

@@ -62,7 +62,7 @@ Verified CSV facts used in the loader and schema design:
 - exact duplicate rows: 5,268
 - invoices with more than one `InvoiceDate`: 43
 - customers with more than one `Country`: 8
-- stock codes with several descriptions: 650
+- stock codes with several descriptions: 650 raw, 647 after trimming leading/trailing spaces (the loader trims, so 647 is the number it works with)
 - stock codes with only null descriptions: 112
 - missing `Customer ID` rows: 135,080
 - missing `Description` rows: 1,454
@@ -73,20 +73,34 @@ Verified CSV facts used in the loader and schema design:
 - the two negative-price adjustment rows are `A563186` and `A563187`
 - `Customer ID` values are normalized as strings such as `17850`, not floats like `17850.0`
 
-Runtime validation:
-
-- the repo now includes a dedicated Postgres validation note in `postgres_validation.md`
-- this workspace does not have `psql`, so the live sandbox proof must be captured on a local PostgreSQL installation before the report is finalized
-
 Loader notes:
 
-- `database/load_data.py` implements the staging-and-cleaning loader rules for the full CSV
-- the loader is wired for PostgreSQL transactions and produces a JSON load report when run against a live database
+- `database/load_data.py` applies the cleaning rules in Python and loads all four operational tables in one transaction (rolled back on any error)
+- products get the most frequent non-empty description for their stock code (e.g. `21275` = `ZINC TOP  2 DOOR WOODEN SHELF`, not the one-off `?`)
+- without `--reset` the loader refuses to load into non-empty tables; with `--reset` it truncates them first
+- `post_clean_duplicates_removed = 3`: after collapsing the 43 multi-timestamp invoices to their earliest date and unifying each product's description, 3 line items became identical to another line in the same invoice (same product, quantity and price) and were merged. They only differed in the raw timestamp or in the spelling of the description, which the operational schema does not store per line.
+
+Load report from a live run of `load_data.py --reset` on the full CSV (PostgreSQL 16):
+
+| Measure | Value |
+|---|---|
+| raw rows | 541,910 |
+| exact duplicates removed | 5,268 |
+| post-clean duplicates removed | 3 |
+| line items loaded | 536,639 |
+| customers | 4,372 |
+| products | 4,070 (112 with no description) |
+| invoices | 25,900 (22,061 completed, 3,836 cancelled, 3 adjustment) |
+| guest invoices (no customer) | 3,710 |
+
+Runtime validation:
+
+- `scripts/validate_db.ps1` (Windows) / `scripts/validate_db.sh` (Linux/macOS) recreate a database, load both schemas and the full CSV, run all query files, integrity checks and five negative tests, and write everything to `docs/validation_output.txt`
+- `docs/validation_output.txt` is the live sandbox proof for the report; see `postgres_validation.md`
 
 Still to do later in the project:
 
-- write the ER diagram formally
-- add the agent-system database schema
-- add guardrail/policy tables
-- build transaction and audit logging
-- add query and division examples
+- redraw the ER diagram in `database/docs/erd.md` with all columns, and fix the nullable-FK cardinalities (customers -> invoices, agent_sessions -> schema_lookup_log / execution_audit, schema_lookup_log -> execution_audit are zero-or-one on the parent side)
+- guardrail logic that uses `policy_rules` and `column_sensitivity` (Week 5)
+- transactional execution and audit logging into `execution_audit` / `compensation_ledger` (Weeks 6-8)
+- relational-algebra / division query examples

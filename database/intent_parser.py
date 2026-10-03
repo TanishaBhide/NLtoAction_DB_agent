@@ -33,8 +33,128 @@ DESTRUCTIVE_SYNONYMS = {
     "truncate": "truncate",
 }
 
+# Weak destructive verbs: only destructive when they are the main imperative verb
+# ("empty the customers table"), not when used as adjectives ("show empty rows").
+WEAK_DESTRUCTIVE_RE = re.compile(r"^(?:please\s+)?(?:can you\s+|could you\s+)?(empty|clear)\b")
+IMPERATIVE_DESTRUCTIVE_RE = re.compile(
+    r"^(?:please\s+)?(?:can you\s+|could you\s+)?(delete|remove|get rid of|erase|purge|wipe|clear|empty|drop|truncate)\b"
+)
+
 READ_ACTION_STARTERS = {"show", "list", "find", "get", "select", "display", "retrieve", "count", "what", "which"}
-PAST_TENSE_TOKENS = {"deleted", "updated", "inserted", "created", "removed", "cancelled", "truncated"}
+QUESTION_STARTERS = (
+    "how many", "how much", "count", "number of", "which", "what", "show", "list",
+    "display", "find", "get", "when", "who", "give me", "tell me",
+)
+PAST_TENSE_TOKENS = {
+    "deleted", "updated", "inserted", "created", "removed", "cancelled", "canceled",
+    "truncated", "dropped", "erased", "purged", "wiped", "changed", "modified",
+}
+PAST_AUXILIARY_RE = re.compile(r"\b(did|were|was|have been|has been|had been)\b")
+
+# Follow-up requests that refine the previous request in the same session.
+FOLLOW_UP_STARTERS = (
+    "now", "only", "and ", "also", "same", "the same", "those", "these", "just",
+    "but ", "what about", "how about", "then", "instead",
+)
+
+# Column phrases usable in "set/change/update <column> ... to <value>".
+SET_COLUMN_ALIASES = {
+    "unit price": "unit_price",
+    "unit_price": "unit_price",
+    "price": "unit_price",
+    "quantity": "quantity",
+    "qty": "quantity",
+    "product description": "description",
+    "product name": "description",
+    "description": "description",
+    "name": "description",
+    "country": "country",
+    "status": "status",
+    "invoice date": "invoice_date",
+    "invoice_date": "invoice_date",
+    "date": "invoice_date",
+}
+_SET_COLUMN_ALT = "|".join(re.escape(alias) for alias in sorted(SET_COLUMN_ALIASES, key=len, reverse=True))
+_UPDATE_VERB = r"(?:set|change|update|modify|make)"
+_UPDATE_VALUE = r"(?:'(?P<q1>[^']*)'|\"(?P<q2>[^\"]*)\"|(?P<bare>.+?))"
+UPDATE_PATTERNS = [
+    # change the country of customer 17850 to France
+    re.compile(
+        rf"\b{_UPDATE_VERB}\s+(?:the\s+)?(?P<col>{_SET_COLUMN_ALT})\s+(?:of|for|on)\s+(?P<entity>.+?)\s+(?:to|=)\s+{_UPDATE_VALUE}\s*[.!]?\s*$",
+        re.IGNORECASE,
+    ),
+    # change customer 13047's country to Italy
+    re.compile(
+        rf"\b{_UPDATE_VERB}\s+(?P<entity>.+?)'s\s+(?P<col>{_SET_COLUMN_ALT})\s+(?:to|=)\s+{_UPDATE_VALUE}\s*[.!]?\s*$",
+        re.IGNORECASE,
+    ),
+    # update unit price to 3 for stock code 85123A / update invoice 536365 set status to cancelled
+    re.compile(
+        rf"\b{_UPDATE_VERB}\s+(?:the\s+)?(?P<col>{_SET_COLUMN_ALT})\s*(?:to|=)\s*{_UPDATE_VALUE}(?:\s+(?:for|of|on|where|in)\s+(?P<entity>.+?))?\s*[.!]?\s*$",
+        re.IGNORECASE,
+    ),
+]
+
+# Numeric columns that support comparisons ("quantity above 100", "cost more than 5").
+NUMERIC_COLUMN_ALIASES = {
+    "unit price": "unit_price",
+    "unit prices": "unit_price",
+    "price": "unit_price",
+    "prices": "unit_price",
+    "cost": "unit_price",
+    "costs": "unit_price",
+    "costing": "unit_price",
+    "priced": "unit_price",
+    "quantity": "quantity",
+    "quantities": "quantity",
+    "qty": "quantity",
+    "units": "quantity",
+}
+_NUMERIC_COLUMN_ALT = "|".join(re.escape(alias) for alias in sorted(NUMERIC_COLUMN_ALIASES, key=len, reverse=True))
+COMPARISON_OPERATORS = [
+    (r"at least|no less than|>=", ">="),
+    (r"at most|no more than|<=", "<="),
+    (r"more than|greater than|higher than|above|over|exceeding|>", ">"),
+    (r"less than|fewer than|lower than|below|under|<", "<"),
+    (r"equal to|equals|exactly|=", "="),
+]
+_NUMBER = r"(-?\d+(?:\.\d+)?)"
+
+# invoices.status values and the words that refer to them.
+STATUS_WORDS = {
+    "cancelled": "cancelled",
+    "canceled": "cancelled",
+    "cancellation": "cancelled",
+    "cancellations": "cancelled",
+    "adjustment": "adjustment",
+    "adjustments": "adjustment",
+    "completed": "completed",
+}
+
+# "per country", "for each product", "in each country" -> GROUP BY target.
+GROUP_BY_TARGETS = {
+    "country": ("customers.country", ["customers", "invoices"]),
+    "countries": ("customers.country", ["customers", "invoices"]),
+    "customer": ("invoices.customer_id", ["invoices"]),
+    "customers": ("invoices.customer_id", ["invoices"]),
+    "product": ("invoice_items.stock_code", ["invoice_items"]),
+    "products": ("invoice_items.stock_code", ["invoice_items"]),
+    "stock code": ("invoice_items.stock_code", ["invoice_items"]),
+    "invoice": ("invoice_items.invoice_no", ["invoice_items"]),
+    "invoices": ("invoice_items.invoice_no", ["invoice_items"]),
+    "status": ("invoices.status", ["invoices"]),
+    "month": ("month(invoices.invoice_date)", ["invoices"]),
+    "year": ("year(invoices.invoice_date)", ["invoices"]),
+}
+_GROUP_BY_ALT = "|".join(re.escape(key) for key in sorted(GROUP_BY_TARGETS, key=len, reverse=True))
+GROUP_BY_RE = re.compile(rf"\b(?:per|by|for each|for every|in each|each)\s+(?P<target>{_GROUP_BY_ALT})\b")
+
+# Aggregation measures.
+MEASURE_PATTERNS = [
+    (re.compile(r"\b(revenue|sales|turnover)\b"), "quantity * unit_price"),
+    (re.compile(r"\b(quantity|quantities|units|items sold)\b"), "quantity"),
+    (re.compile(r"\b(unit price|price|prices)\b"), "unit_price"),
+]
 
 IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?")
@@ -275,33 +395,23 @@ class IntentParser:
 
     def _match_numeric_constraints(self, text: str, constraints: list[dict[str, Any]], target_tables: list[str], target_columns: list[str]) -> None:
         normalized = _normalize(text)
-        table = "invoice_items"
-        column = "unit_price"
 
-        patterns = [
-            (r"(?:price|unit price) (?:above|over|more than|greater than) (\-?\d+(?:\.\d+)?)", ">"),
-            (r"(?:price|unit price) (?:below|under|less than) (\-?\d+(?:\.\d+)?)", "<"),
-            (r"(?:price|unit price) at least (\-?\d+(?:\.\d+)?)", ">="),
-            (r"(?:price|unit price) at most (\-?\d+(?:\.\d+)?)", "<="),
-            (r"(?:price|unit price) (?:is|equals?|equal to) (\-?\d+(?:\.\d+)?)", "="),
-            (r"(?:cost|costing|priced) (?:above|over|more than|greater than) (\-?\d+(?:\.\d+)?)", ">"),
-            (r"(?:cost|costing|priced) (?:below|under|less than) (\-?\d+(?:\.\d+)?)", "<"),
-            (r"(?:cost|costing|priced) at least (\-?\d+(?:\.\d+)?)", ">="),
-            (r"(?:cost|costing|priced) at most (\-?\d+(?:\.\d+)?)", "<="),
-            (r"(?:cost|costing|priced) (?:is|equals?|equal to) (\-?\d+(?:\.\d+)?)", "="),
-        ]
-        for pattern, operator in patterns:
-            match = re.search(pattern, normalized)
-            if match:
-                self._add_constraint(constraints, table, column, operator, _to_number(match.group(1)))
+        # One rule for every numeric column: "<column> [is] <comparison> <number>".
+        for operator_words, operator in COMPARISON_OPERATORS:
+            pattern = rf"\b(?P<col>{_NUMERIC_COLUMN_ALT})\s+(?:is\s+|of\s+)?(?:{operator_words})\s*{_NUMBER}"
+            for match in re.finditer(pattern, normalized):
+                column = NUMERIC_COLUMN_ALIASES[match.group("col")]
+                table = self._infer_table_for_column(column) or "invoice_items"
+                self._add_constraint(constraints, table, column, operator, _to_number(match.group(2)))
                 if table not in target_tables:
                     target_tables.append(table)
                 if column not in target_columns:
                     target_columns.append(column)
 
-        between_match = re.search(r"(?:price|unit price|cost|costing|priced) between (\-?\d+(?:\.\d+)?) and (\-?\d+(?:\.\d+)?)", normalized)
-        if between_match:
-            self._add_constraint(constraints, table, column, "between", [_to_number(between_match.group(1)), _to_number(between_match.group(2))])
+        for match in re.finditer(rf"\b(?P<col>{_NUMERIC_COLUMN_ALT})\s+between\s+{_NUMBER}\s+and\s+{_NUMBER}", normalized):
+            column = NUMERIC_COLUMN_ALIASES[match.group("col")]
+            table = self._infer_table_for_column(column) or "invoice_items"
+            self._add_constraint(constraints, table, column, "between", [_to_number(match.group(2)), _to_number(match.group(3))])
             if table not in target_tables:
                 target_tables.append(table)
             if column not in target_columns:
@@ -325,49 +435,46 @@ class IntentParser:
             if "description" not in target_columns:
                 target_columns.append("description")
 
-        invoice_between_dates = re.search(r"invoices?\s+between\s+(\d{4}-\d{2}-\d{2})\s+and\s+(\d{4}-\d{2}-\d{2})", normalized)
-        if invoice_between_dates:
-            self._add_constraint(
-                constraints,
-                "invoices",
-                "invoice_date",
-                "between",
-                [invoice_between_dates.group(1), invoice_between_dates.group(2)],
-            )
+        # Date range on invoice_date. (Year / before / after / relative dates are
+        # handled once, in _match_constraints.)
+        date_range = re.search(r"\bbetween\s+(\d{4}-\d{2}-\d{2})\s+and\s+(\d{4}-\d{2}-\d{2})\b", normalized)
+        if date_range:
+            self._add_constraint(constraints, "invoices", "invoice_date", "between", [date_range.group(1), date_range.group(2)])
             if "invoices" not in target_tables:
                 target_tables.append("invoices")
 
-        date_patterns = [
-            (r"before (\d{4}-\d{2}-\d{2})", "<"),
-            (r"after (\d{4}-\d{2}-\d{2})", ">"),
-            (r"in (\d{4})", "year"),
-            (r"from (\d{4})", "year"),
-        ]
-        for pattern, operator in date_patterns:
-            match = re.search(pattern, normalized)
-            if match:
-                value = match.group(1)
-                if operator == "year":
-                    value = int(value)
-                self._add_constraint(constraints, "invoices", "invoice_date", operator, value)
+    def _match_status(
+        self,
+        text: str,
+        constraints: list[dict[str, Any]],
+        target_tables: list[str],
+        target_columns: list[str],
+        invoices_in_context: bool = False,
+    ) -> None:
+        """'show cancelled invoices' -> invoices.status = 'cancelled'.
+
+        invoices_in_context=True is used for follow-ups such as 'only cancelled ones'
+        when the previous request in the session was about invoices.
+        """
+        normalized = _normalize(text)
+        words = _words(normalized)
+        mentions_invoices = invoices_in_context or any(word in words for word in ("invoice", "invoices", "order", "orders", "status"))
+        if not mentions_invoices:
+            return
+        for word, status in STATUS_WORDS.items():
+            if word in words:
+                self._add_constraint(constraints, "invoices", "status", "=", status)
                 if "invoices" not in target_tables:
                     target_tables.append("invoices")
-
-        if "last month" in normalized:
-            self._add_constraint(constraints, "invoices", "invoice_date", "last_month", True)
-            if "invoices" not in target_tables:
-                target_tables.append("invoices")
+                if "status" not in target_columns:
+                    target_columns.append("status")
 
     def _match_follow_up(self, text: str, previous: ParsedIntent | None) -> tuple[bool, list[str], list[str], list[dict[str, Any]], dict[str, Any] | None, list[dict[str, Any]], int | None]:
         normalized = _normalize(text)
         follow_up = previous is not None and (
-            normalized.startswith("now only")
-            or normalized.startswith("same but")
-            or normalized.startswith("those")
-            or normalized.startswith("and sort by")
-            or normalized.startswith("same for")
-            or normalized.startswith("the same")
-            or normalized.startswith("only for")
+            normalized.startswith(FOLLOW_UP_STARTERS)
+            or "the ones" in normalized
+            or re.search(r"\b(those|these|them)\b", normalized) is not None
         )
         if not follow_up:
             return False, [], [], [], None, [], None
@@ -422,9 +529,68 @@ class IntentParser:
 
         return list(dict.fromkeys(tables)), list(dict.fromkeys(columns))
 
+    def _is_question_about_past_change(self, normalized: str) -> bool:
+        """'how many invoices did we delete', 'which invoices were cancelled' are reads.
+
+        A question form plus a past-tense change word (or did/were/was/has been)
+        asks ABOUT data changes; it does not request one. An imperative destructive
+        verb at the start ('delete invoices that were cancelled') is never a question.
+        """
+        if IMPERATIVE_DESTRUCTIVE_RE.match(normalized):
+            return False
+        if not normalized.startswith(QUESTION_STARTERS):
+            return False
+        words = _words(normalized)
+        return any(token in words for token in PAST_TENSE_TOKENS) or PAST_AUXILIARY_RE.search(normalized) is not None
+
+    def _match_update(self, text: str) -> tuple[str, Any] | None:
+        """One shared rule for set/change/update/modify/make <column> ... to <value>.
+
+        Returns (column, value) or None.
+        """
+        stripped = text.strip()
+        for pattern in UPDATE_PATTERNS:
+            match = pattern.search(stripped)
+            if not match:
+                continue
+            column = SET_COLUMN_ALIASES[match.group("col").lower()]
+            raw_value = match.group("q1") or match.group("q2") or match.group("bare") or ""
+            raw_value = raw_value.strip().rstrip(".!").strip()
+            if not raw_value:
+                continue
+            return column, self._normalize_set_value(column, raw_value)
+        return None
+
+    def _normalize_set_value(self, column: str, raw_value: str) -> Any:
+        if column in {"unit_price", "quantity"}:
+            return _to_number(raw_value)
+        if column == "country":
+            return self.country_values.get(raw_value.lower(), raw_value.title())
+        if column == "status":
+            return STATUS_WORDS.get(raw_value.lower(), raw_value.lower())
+        return raw_value
+
     def _classify_action(self, text: str) -> tuple[str, str, bool, list[str]]:
         normalized = _normalize(text)
         ambiguities: list[str] = []
+
+        # 1. Questions about past changes are reads, even if they contain delete/remove/drop.
+        if self._is_question_about_past_change(normalized):
+            ambiguities.append("question asks about past data changes, treated as read")
+            if normalized.startswith(("how many", "count", "number of")):
+                return "read", "aggregate_count", False, ambiguities
+            return "read", "retrieve_records", False, ambiguities
+
+        # 2. Updates: one shared rule for set/change/update/modify ... to <value>.
+        if self._match_update(text) is not None:
+            return "write", "update_record", False, ambiguities
+
+        # 3. Weak destructive verbs used as the main imperative ("empty the customers table").
+        weak = WEAK_DESTRUCTIVE_RE.match(normalized)
+        if weak:
+            if "table" in _words(normalized):
+                return "ddl", "truncate_table", True, ambiguities
+            return "write", "delete_record", True, ambiguities
 
         if re.search(r"\b(drop|truncate|alter|grant|revoke)\b", normalized) or "create table" in normalized:
             if "drop" in normalized:
@@ -441,13 +607,6 @@ class IntentParser:
         read_cues = any(_contains_phrase(normalized, cue) for cue in READ_KEYWORDS)
         write_cues = any(_contains_phrase(normalized, cue) for cue in WRITE_KEYWORDS)
         question_cue = normalized.startswith(tuple(READ_ACTION_STARTERS)) or normalized.startswith("how many")
-        past_tense_cue = any(token in _words(normalized) for token in PAST_TENSE_TOKENS)
-
-        if question_cue and past_tense_cue:
-            ambiguities.append("question asks about past data changes, treat as read")
-            if "how many" in normalized or normalized.startswith("count"):
-                return "read", "aggregate_count", False, ambiguities
-            return "read", "retrieve_records", False, ambiguities
 
         if "cancel invoice" in normalized:
             return "write", "cancel_invoice", True, ambiguities
@@ -487,7 +646,7 @@ class IntentParser:
         if read_cues:
             if "how many" in normalized or normalized.startswith("count"):
                 return "read", "aggregate_count", False, ambiguities
-            if "total revenue" in normalized or "sum" in normalized:
+            if re.search(r"\b(total|sum)\b", normalized):
                 return "read", "aggregate_sum", False, ambiguities
             return "read", "retrieve_records", False, ambiguities
 
@@ -497,28 +656,53 @@ class IntentParser:
 
         return "unknown", "unknown", False, ambiguities
 
+    def _detect_measure(self, normalized: str) -> str | None:
+        for pattern, measure in MEASURE_PATTERNS:
+            if pattern.search(normalized):
+                return measure
+        return None
+
+    def _detect_group_by(self, normalized: str, target_tables: list[str]) -> list[str]:
+        group_by: list[str] = []
+        for match in GROUP_BY_RE.finditer(normalized):
+            expression, tables = GROUP_BY_TARGETS[match.group("target")]
+            if expression not in group_by:
+                group_by.append(expression)
+            for table in tables:
+                if table not in target_tables:
+                    target_tables.append(table)
+        return group_by
+
     def _detect_aggregation(self, text: str, target_tables: list[str]) -> dict[str, Any] | None:
+        """sum / count / avg with an optional GROUP BY, or top-N.
+
+        'total revenue per country' -> sum(quantity * unit_price) group by customers.country
+        'total quantity per product' -> sum(quantity) group by invoice_items.stock_code
+        'how many invoices per country' -> count(*) group by customers.country
+        """
         normalized = _normalize(text)
-        if "total revenue per country" in normalized or ("revenue" in normalized and "country" in normalized):
-            if "customers" not in target_tables:
-                target_tables.append("customers")
-            if "invoice_items" not in target_tables:
+        measure = self._detect_measure(normalized)
+        group_by = self._detect_group_by(normalized, [])
+
+        def _with_tables(aggregation: dict[str, Any]) -> dict[str, Any]:
+            self._detect_group_by(normalized, target_tables)
+            if aggregation.get("measure") in {"quantity * unit_price", "quantity", "unit_price"} and "invoice_items" not in target_tables:
                 target_tables.append("invoice_items")
-            if "invoices" not in target_tables:
-                target_tables.append("invoices")
-            return {
-                "function": "sum",
-                "measure": "quantity * unit_price",
-                "group_by": ["customers.country"],
-            }
+            if group_by:
+                aggregation["group_by"] = group_by
+            return aggregation
 
-        if "how many" in normalized or normalized.startswith("count") or normalized.startswith("number of"):
-            return {"function": "count", "measure": "*"}
+        is_sum = re.search(r"\b(total|sum|sum of)\b", normalized) is not None or (
+            measure == "quantity * unit_price" and bool(group_by)
+        )
+        if is_sum and measure:
+            return _with_tables({"function": "sum", "measure": measure})
 
-        avg_match = re.search(r"average (?:price|unit price|quantity)", normalized)
-        if avg_match:
-            measure = "unit_price" if "price" in avg_match.group(0) else "quantity"
-            return {"function": "avg", "measure": measure}
+        if normalized.startswith(("how many", "count", "number of")) or re.search(r"\bhow many\b", normalized):
+            return _with_tables({"function": "count", "measure": "*"})
+
+        if re.search(r"\b(average|avg|mean)\b", normalized) and measure:
+            return _with_tables({"function": "avg", "measure": measure})
 
         top_match = re.search(r"top\s+(\d+)\s+(.+?)\s+by\s+(.+)$", normalized)
         if top_match:
@@ -614,17 +798,18 @@ class IntentParser:
         self._match_known_values(text, constraints, target_tables, target_columns)
         self._match_basic_equality(text, constraints, target_tables, target_columns)
         self._match_numeric_constraints(text, constraints, target_tables, target_columns)
+        self._match_status(text, constraints, target_tables, target_columns)
 
-        # invoice and date filters not covered above.
+        # Date filters on invoices.invoice_date.
         normalized = _normalize(text)
-        date_year = re.search(r"\b(?:in|from)\s+(20\d{2})\b", normalized)
-        if date_year:
+        for date_year in re.finditer(r"\b(?:in|from|for|during)\s+((?:19|20)\d{2})\b", normalized):
             self._add_constraint(constraints, "invoices", "invoice_date", "year", int(date_year.group(1)))
             target_tables.append("invoices")
 
-        if "last month" in normalized:
-            self._add_constraint(constraints, "invoices", "invoice_date", "last_month", True)
-            target_tables.append("invoices")
+        for phrase, operator in (("last month", "last_month"), ("this month", "this_month"), ("last year", "last_year"), ("this year", "this_year")):
+            if phrase in normalized:
+                self._add_constraint(constraints, "invoices", "invoice_date", operator, True)
+                target_tables.append("invoices")
 
         before_after = re.search(r"\b(before|after)\s+(\d{4}-\d{2}-\d{2})\b", normalized)
         if before_after:
@@ -641,25 +826,11 @@ class IntentParser:
         if action_type != "write" or intent != "update_record":
             return {}
 
-        normalized = _normalize(text)
-        set_values: dict[str, Any] = {}
-
-        country_update = re.search(r"set\s+the\s+country\s+of\s+customer\s+[0-9]+(?:\.0)?\s+to\s+([a-z\s]+)$", normalized)
-        if country_update:
-            country_value = country_update.group(1).strip().title()
-            set_values["country"] = country_value
-
-        desc_update = re.search(r"change\s+the\s+description\s+of\s+stock\s+code\s+[A-Z0-9]+\s+to\s+['\"]?(.+?)['\"]?$", text, flags=re.IGNORECASE)
-        if desc_update:
-            set_values["description"] = desc_update.group(1).strip()
-
-        generic_set = re.search(r"\bset\s+([a-z_]+)\s*(?:to|=)\s*['\"]?(.+?)['\"]?$", text, flags=re.IGNORECASE)
-        if generic_set and generic_set.group(1).lower() not in {"of"}:
-            column = generic_set.group(1).lower()
-            value = generic_set.group(2).strip()
-            set_values[column] = value
-
-        return set_values
+        match = self._match_update(text)
+        if match is None:
+            return {}
+        column, value = match
+        return {column: value}
 
     def _merge_constraints(self, previous_constraints: list[dict[str, Any]], new_constraints: list[dict[str, Any]]) -> list[dict[str, Any]]:
         merged = [dict(item) for item in previous_constraints]
@@ -711,6 +882,8 @@ class IntentParser:
 
         if follow_up and previous is not None:
             resolved_from_context = True
+            if "invoices" in prev_tables:
+                self._match_status(text, constraints, target_tables, target_columns, invoices_in_context=True)
             if not target_tables:
                 target_tables = list(prev_tables)
             else:
@@ -760,7 +933,7 @@ class IntentParser:
             if intent == "aggregate_count":
                 aggregation = {"function": "count", "measure": "*"}
             else:
-                aggregation = {"function": "sum", "measure": "quantity * unit_price", "group_by": ["customers.country"]}
+                aggregation = {"function": "sum", "measure": "quantity * unit_price"}
 
         if aggregation is not None:
             if aggregation.get("function") == "sum":
@@ -781,8 +954,6 @@ class IntentParser:
             elif aggregation.get("function") == "top_n":
                 intent = "retrieve_records"
 
-        if intent == "aggregate_sum" and "customers" not in target_tables:
-            target_tables.append("customers")
         if intent == "aggregate_sum" and "invoice_items" not in target_tables:
             target_tables.append("invoice_items")
 
