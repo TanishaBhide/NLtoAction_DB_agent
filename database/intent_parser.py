@@ -14,7 +14,10 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
-from schema_retrieval import SchemaRetrievalEngine, build_engine
+try:
+    from .schema_retrieval import SchemaRetrievalEngine, build_engine
+except ImportError:
+    from schema_retrieval import SchemaRetrievalEngine, build_engine
 
 
 DDL_KEYWORDS = {"drop", "truncate", "alter", "grant", "revoke", "create table"}

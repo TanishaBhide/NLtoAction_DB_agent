@@ -1,0 +1,18 @@
+{
+  "action_type": "read",
+  "intent": "retrieve_records",
+  "sql": "SELECT \"customers\".\"country\", \"customers\".\"customer_id\" FROM \"customers\" WHERE \"customers\".\"country\" = %s LIMIT %s",
+  "params": [
+    "France",
+    100
+  ],
+  "tables": [
+    "customers"
+  ],
+  "columns": [],
+  "requires_approval": false,
+  "generated": true,
+  "message": "Read-only SQL generated; not executed.",
+  "raw_text": "show customers from France",
+  "confidence": 0.78
+}
