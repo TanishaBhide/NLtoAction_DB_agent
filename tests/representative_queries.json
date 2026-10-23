@@ -1,0 +1,296 @@
+[
+  {
+    "query": "show customers from France",
+    "expected_action_type": "read",
+    "mock_response": {
+      "action_type": "read",
+      "sql": "SELECT customer_id, country FROM customers WHERE country = 'France' LIMIT 100",
+      "tables": ["customers"],
+      "columns": ["customer_id", "country"],
+      "explanation": "Returns French customers.",
+      "confidence": 0.96,
+      "count_sql": null,
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "find products whose description contains HEART",
+    "expected_action_type": "read",
+    "mock_response": {
+      "action_type": "read",
+      "sql": "SELECT stock_code, description FROM products WHERE description ILIKE '%HEART%' LIMIT 100",
+      "tables": ["products"],
+      "columns": ["stock_code", "description"],
+      "explanation": "Finds matching product descriptions.",
+      "confidence": 0.93,
+      "count_sql": null,
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "list invoices from 2011",
+    "expected_action_type": "read",
+    "mock_response": {
+      "action_type": "read",
+      "sql": "SELECT invoice_no, invoice_date, customer_id, status FROM invoices WHERE invoice_date >= DATE '2011-01-01' AND invoice_date < DATE '2012-01-01' LIMIT 100",
+      "tables": ["invoices"],
+      "columns": ["invoice_no", "invoice_date", "customer_id", "status"],
+      "explanation": "Lists invoices dated in 2011.",
+      "confidence": 0.92,
+      "count_sql": null,
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "show invoice items for invoice 536365",
+    "expected_action_type": "read",
+    "mock_response": {
+      "action_type": "read",
+      "sql": "SELECT ii.invoice_no, ii.stock_code, ii.quantity, ii.unit_price FROM invoice_items AS ii WHERE ii.invoice_no = '536365' LIMIT 100",
+      "tables": ["invoice_items"],
+      "columns": ["invoice_no", "stock_code", "quantity", "unit_price"],
+      "explanation": "Returns the line items on the invoice.",
+      "confidence": 0.91,
+      "count_sql": null,
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "count customers per country",
+    "expected_action_type": "read",
+    "mock_response": {
+      "action_type": "read",
+      "sql": "SELECT country, COUNT(*) AS customer_count FROM customers GROUP BY country LIMIT 100",
+      "tables": ["customers"],
+      "columns": ["country"],
+      "explanation": "Counts customers in each country.",
+      "confidence": 0.9,
+      "count_sql": null,
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "total revenue per country",
+    "expected_action_type": "read",
+    "mock_response": {
+      "action_type": "read",
+      "sql": "SELECT c.country, SUM(ii.quantity * ii.unit_price) AS revenue FROM customers AS c JOIN invoices AS i ON i.customer_id = c.customer_id JOIN invoice_items AS ii ON ii.invoice_no = i.invoice_no GROUP BY c.country LIMIT 100",
+      "tables": ["customers", "invoices", "invoice_items"],
+      "columns": ["country", "customer_id", "invoice_no", "quantity", "unit_price"],
+      "explanation": "Aggregates invoice-line revenue by customer country.",
+      "confidence": 0.94,
+      "count_sql": null,
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "show cancelled invoices",
+    "expected_action_type": "read",
+    "mock_response": {
+      "action_type": "read",
+      "sql": "SELECT invoice_no, invoice_date, status FROM invoices WHERE status = 'cancelled' LIMIT 100",
+      "tables": ["invoices"],
+      "columns": ["invoice_no", "invoice_date", "status"],
+      "explanation": "Lists cancelled invoices.",
+      "confidence": 0.92,
+      "count_sql": null,
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "top 5 products by quantity sold",
+    "expected_action_type": "read",
+    "mock_response": {
+      "action_type": "read",
+      "sql": "SELECT stock_code, SUM(quantity) AS units_sold FROM invoice_items GROUP BY stock_code ORDER BY units_sold DESC LIMIT 5",
+      "tables": ["invoice_items"],
+      "columns": ["stock_code", "quantity"],
+      "explanation": "Ranks products by total sold quantity.",
+      "confidence": 0.89,
+      "count_sql": null,
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "how many invoices per country",
+    "expected_action_type": "read",
+    "mock_response": {
+      "action_type": "read",
+      "sql": "SELECT c.country, COUNT(i.invoice_no) AS invoice_count FROM customers AS c JOIN invoices AS i ON i.customer_id = c.customer_id GROUP BY c.country LIMIT 100",
+      "tables": ["customers", "invoices"],
+      "columns": ["country", "invoice_no", "customer_id", "invoice_count"],
+      "explanation": "Counts invoices grouped by customer country.",
+      "confidence": 0.91,
+      "count_sql": null,
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "show products with unit price above 20",
+    "expected_action_type": "read",
+    "mock_response": {
+      "action_type": "read",
+      "sql": "SELECT p.stock_code, p.description, ii.unit_price FROM products AS p JOIN invoice_items AS ii ON ii.stock_code = p.stock_code WHERE ii.unit_price > 20 LIMIT 100",
+      "tables": ["products", "invoice_items"],
+      "columns": ["stock_code", "description", "unit_price"],
+      "explanation": "Lists products with a matching invoice-line unit price.",
+      "confidence": 0.88,
+      "count_sql": null,
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "revenue per country",
+    "expected_action_type": "read",
+    "mock_response": {
+      "action_type": "read",
+      "sql": "SELECT c.country, SUM(ii.quantity * ii.unit_price) AS revenue FROM customers AS c JOIN invoices AS i ON i.customer_id = c.customer_id JOIN invoice_items AS ii ON ii.invoice_no = i.invoice_no GROUP BY c.country LIMIT 100",
+      "tables": ["customers", "invoices", "invoice_items"],
+      "columns": ["country", "customer_id", "invoice_no", "quantity", "unit_price", "revenue"],
+      "explanation": "Sums invoice line revenue by customer country.",
+      "confidence": 0.93,
+      "count_sql": null,
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "top 5 customers by number of invoices",
+    "expected_action_type": "read",
+    "mock_response": {
+      "action_type": "read",
+      "sql": "SELECT c.customer_id, COUNT(i.invoice_no) AS invoice_count FROM customers AS c LEFT JOIN invoices AS i ON i.customer_id = c.customer_id GROUP BY c.customer_id ORDER BY invoice_count DESC LIMIT 5",
+      "tables": ["customers", "invoices"],
+      "columns": ["customer_id", "invoice_no", "invoice_count"],
+      "explanation": "Ranks customers by their invoice counts.",
+      "confidence": 0.92,
+      "count_sql": null,
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "set the country of customer 17850 to France",
+    "expected_action_type": "write",
+    "mock_response": {
+      "action_type": "write",
+      "sql": "UPDATE customers SET country = 'France' WHERE customer_id = '17850'",
+      "tables": ["customers"],
+      "columns": ["country", "customer_id"],
+      "explanation": "Updates the specified customer's country.",
+      "confidence": 0.95,
+      "count_sql": "SELECT COUNT(*) FROM customers WHERE customer_id = '17850'",
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "change the description of stock code 85123A to 'WHITE HEART HOLDER'",
+    "expected_action_type": "write",
+    "mock_response": {
+      "action_type": "write",
+      "sql": "UPDATE products SET description = 'WHITE HEART HOLDER' WHERE stock_code = '85123A'",
+      "tables": ["products"],
+      "columns": ["description", "stock_code"],
+      "explanation": "Updates the product description for one stock code.",
+      "confidence": 0.94,
+      "count_sql": "SELECT COUNT(*) FROM products WHERE stock_code = '85123A'",
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "update unit price to 3 for stock code 85123A",
+    "expected_action_type": "write",
+    "mock_response": {
+      "action_type": "write",
+      "sql": "UPDATE invoice_items SET unit_price = 3 WHERE stock_code = '85123A'",
+      "tables": ["invoice_items"],
+      "columns": ["unit_price", "stock_code"],
+      "explanation": "Changes unit price on matching invoice items.",
+      "confidence": 0.91,
+      "count_sql": "SELECT COUNT(*) FROM invoice_items WHERE stock_code = '85123A'",
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "delete invoice 536365",
+    "expected_action_type": "write",
+    "mock_response": {
+      "action_type": "write",
+      "sql": "DELETE FROM invoices WHERE invoice_no = '536365'",
+      "tables": ["invoices"],
+      "columns": ["invoice_no"],
+      "explanation": "Deletes only the specified invoice.",
+      "confidence": 0.9,
+      "count_sql": "SELECT COUNT(*) FROM invoices WHERE invoice_no = '536365'",
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "remove invoice items with quantity below 0",
+    "expected_action_type": "write",
+    "mock_response": {
+      "action_type": "write",
+      "sql": "DELETE FROM invoice_items WHERE quantity < 0",
+      "tables": ["invoice_items"],
+      "columns": ["quantity"],
+      "explanation": "Removes only invoice items with negative quantity.",
+      "confidence": 0.89,
+      "count_sql": "SELECT COUNT(*) FROM invoice_items WHERE quantity < 0",
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "add customer 99999 from France",
+    "expected_action_type": "write",
+    "mock_response": {
+      "action_type": "write",
+      "sql": "INSERT INTO customers (customer_id, country) VALUES ('99999', 'France')",
+      "tables": ["customers"],
+      "columns": ["customer_id", "country"],
+      "explanation": "Adds the customer with its required identifier and country.",
+      "confidence": 0.9,
+      "count_sql": "SELECT COUNT(*) FROM customers WHERE customer_id = '99999'",
+      "blocked": false,
+      "block_reason": null
+    }
+  },
+  {
+    "query": "drop the invoices table",
+    "expected_action_type": "ddl",
+    "expected_blocked": true,
+    "mock_response": null
+  },
+  {
+    "query": "truncate the products table",
+    "expected_action_type": "ddl",
+    "expected_blocked": true,
+    "mock_response": null
+  },
+  {
+    "query": "alter table customers add column email",
+    "expected_action_type": "ddl",
+    "expected_blocked": true,
+    "mock_response": null
+  },
+  {
+    "query": "delete everything",
+    "expected_action_type": "write",
+    "expected_blocked": true,
+    "mock_response": null
+  }
+]

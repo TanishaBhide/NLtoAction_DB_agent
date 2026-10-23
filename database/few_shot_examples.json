@@ -1,0 +1,127 @@
+[
+  {
+    "question": "show customers from France",
+    "action_type": "read",
+    "intent": "retrieve_records",
+    "sql": "SELECT customer_id, country FROM customers WHERE country = 'France' LIMIT 100"
+  },
+  {
+    "question": "find products containing HEART in the description",
+    "action_type": "read",
+    "intent": "retrieve_records",
+    "sql": "SELECT stock_code, description FROM products WHERE description ILIKE '%HEART%' LIMIT 100"
+  },
+  {
+    "question": "list cancelled invoices from 2011",
+    "action_type": "read",
+    "intent": "retrieve_records",
+    "sql": "SELECT invoice_no, invoice_date, status FROM invoices WHERE status = 'cancelled' AND invoice_date >= DATE '2011-01-01' AND invoice_date < DATE '2012-01-01' LIMIT 100"
+  },
+  {
+    "question": "show line items for invoice 536365",
+    "action_type": "read",
+    "intent": "retrieve_records",
+    "sql": "SELECT ii.invoice_no, ii.stock_code, ii.quantity, ii.unit_price FROM invoice_items AS ii WHERE ii.invoice_no = '536365' LIMIT 100"
+  },
+  {
+    "question": "show invoices with their customer country",
+    "action_type": "read",
+    "intent": "retrieve_records",
+    "sql": "SELECT i.invoice_no, c.country FROM invoices AS i JOIN customers AS c ON c.customer_id = i.customer_id LIMIT 100"
+  },
+  {
+    "question": "how many customers are there in each country",
+    "action_type": "read",
+    "intent": "aggregate_count",
+    "sql": "SELECT country, COUNT(*) AS customer_count FROM customers GROUP BY country LIMIT 100"
+  },
+  {
+    "question": "total revenue by country",
+    "action_type": "read",
+    "intent": "aggregate_sum",
+    "sql": "SELECT c.country, SUM(ii.quantity * ii.unit_price) AS revenue FROM customers AS c JOIN invoices AS i ON i.customer_id = c.customer_id JOIN invoice_items AS ii ON ii.invoice_no = i.invoice_no GROUP BY c.country LIMIT 100"
+  },
+  {
+    "question": "average unit price by product",
+    "action_type": "read",
+    "intent": "aggregate_avg",
+    "sql": "SELECT p.stock_code, AVG(ii.unit_price) AS average_price FROM products AS p JOIN invoice_items AS ii ON ii.stock_code = p.stock_code GROUP BY p.stock_code LIMIT 100"
+  },
+  {
+    "question": "top 5 products by quantity sold",
+    "action_type": "read",
+    "intent": "retrieve_records",
+    "sql": "SELECT stock_code, SUM(quantity) AS units_sold FROM invoice_items GROUP BY stock_code ORDER BY units_sold DESC LIMIT 5"
+  },
+  {
+    "question": "how many invoices did customer 17850 place",
+    "action_type": "read",
+    "intent": "aggregate_count",
+    "sql": "SELECT COUNT(*) AS invoice_count FROM invoices WHERE customer_id = '17850' LIMIT 100"
+  },
+  {
+    "question": "how many invoices per country",
+    "action_type": "read",
+    "intent": "aggregate_count",
+    "sql": "SELECT c.country, COUNT(i.invoice_no) AS invoice_count FROM customers AS c JOIN invoices AS i ON i.customer_id = c.customer_id GROUP BY c.country LIMIT 100"
+  },
+  {
+    "question": "revenue per country",
+    "action_type": "read",
+    "intent": "aggregate_sum",
+    "sql": "SELECT c.country, SUM(ii.quantity * ii.unit_price) AS revenue FROM customers AS c JOIN invoices AS i ON i.customer_id = c.customer_id JOIN invoice_items AS ii ON ii.invoice_no = i.invoice_no GROUP BY c.country LIMIT 100"
+  },
+  {
+    "question": "top 5 customers by number of invoices",
+    "action_type": "read",
+    "intent": "aggregate_count",
+    "sql": "SELECT c.customer_id, COUNT(i.invoice_no) AS invoice_count FROM customers AS c LEFT JOIN invoices AS i ON i.customer_id = c.customer_id GROUP BY c.customer_id ORDER BY invoice_count DESC LIMIT 5"
+  },
+  {
+    "question": "add customer 99999 from France",
+    "action_type": "write",
+    "intent": "insert_record",
+    "sql": "INSERT INTO customers (customer_id, country) VALUES ('99999', 'France')"
+  },
+  {
+    "question": "create invoice 536366 for customer 17850",
+    "action_type": "write",
+    "intent": "insert_record",
+    "sql": "INSERT INTO invoices (invoice_no, invoice_date, customer_id) VALUES ('536366', CURRENT_TIMESTAMP, '17850')"
+  },
+  {
+    "question": "change customer 17850 country to France",
+    "action_type": "write",
+    "intent": "update_record",
+    "sql": "UPDATE customers SET country = 'France' WHERE customer_id = '17850'",
+    "count_sql": "SELECT COUNT(*) FROM customers WHERE customer_id = '17850'"
+  },
+  {
+    "question": "set price for stock code 85123A to 5",
+    "action_type": "write",
+    "intent": "update_record",
+    "sql": "UPDATE invoice_items SET unit_price = 5 WHERE stock_code = '85123A'",
+    "count_sql": "SELECT COUNT(*) FROM invoice_items WHERE stock_code = '85123A'"
+  },
+  {
+    "question": "change invoice 536365 status to cancelled",
+    "action_type": "write",
+    "intent": "update_record",
+    "sql": "UPDATE invoices SET status = 'cancelled' WHERE invoice_no = '536365'",
+    "count_sql": "SELECT COUNT(*) FROM invoices WHERE invoice_no = '536365'"
+  },
+  {
+    "question": "delete invoice 536365",
+    "action_type": "write",
+    "intent": "delete_record",
+    "sql": "DELETE FROM invoices WHERE invoice_no = '536365'",
+    "count_sql": "SELECT COUNT(*) FROM invoices WHERE invoice_no = '536365'"
+  },
+  {
+    "question": "remove invoice line items with negative quantity",
+    "action_type": "write",
+    "intent": "delete_record",
+    "sql": "DELETE FROM invoice_items WHERE quantity < 0",
+    "count_sql": "SELECT COUNT(*) FROM invoice_items WHERE quantity < 0"
+  }
+]
