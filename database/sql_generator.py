@@ -15,12 +15,12 @@ from sqlglot.errors import ParseError
 
 try:
     from .intent_parser import IntentParser, ParsedIntent
-    from .llm_client import LLMClient, create_llm_client
+    from .llm_client import LLMClient, LLMUnavailableError, create_llm_client
     from .prompt_builder import PromptBuilder
     from .sql_validator import SQLValidator
 except ImportError:
     from intent_parser import IntentParser, ParsedIntent
-    from llm_client import LLMClient, create_llm_client
+    from llm_client import LLMClient, LLMUnavailableError, create_llm_client
     from prompt_builder import PromptBuilder
     from sql_validator import SQLValidator
 
@@ -190,16 +190,36 @@ class SQLGenerator:
 
         try:
             system, user, tool_schema = self.prompt_builder.build(parsed, text)
-            client = self.llm_client or create_llm_client()
         except (TypeError, ValueError, KeyError) as error:
             return self._blocked(parsed, parsed.action_type, f"Invalid generated action plan: {error}")
+        try:
+            client = self.llm_client or create_llm_client()
+            self.llm_client = client
+        except (TypeError, ValueError) as error:
+            return self._blocked(
+                parsed,
+                parsed.action_type,
+                f"LLM unavailable/timeout: {type(error).__name__}: {error}",
+            )
 
         retry_user = user
         for attempt in range(2):
             response: Any = None
             try:
-                response = client.complete(system, retry_user, tool_schema)
+                response = client.complete(
+                    system,
+                    retry_user,
+                    tool_schema,
+                    context=f"request={text!r}; attempt={attempt + 1}",
+                )
                 return self._validate_response(response, parsed)
+            except LLMUnavailableError as error:
+                reason = str(error).replace("\n", " ").strip()
+                return self._blocked(
+                    parsed,
+                    parsed.action_type,
+                    f"LLM unavailable/timeout: {reason}",
+                )
             except (TypeError, ValueError, KeyError) as error:
                 last_error = str(error)
                 if attempt == 1:

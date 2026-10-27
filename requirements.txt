@@ -2,3 +2,6 @@ psycopg2-binary==2.9.13
 pytest==8.3.4
 sqlglot
 openai
+scikit-learn
+joblib
+pandas

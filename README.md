@@ -10,6 +10,7 @@ The project is split into an operational database and an agent-system database.
 - Week 2: added schema metadata and schema lookup.
 - Week 3: added a standard-library-only intent parser with session memory, DDL detection, structured constraints, and simple aggregation support.
 - Week 4: added LLM-backed SQL/action planning, static SQL validation, and offline evaluation. Generated SQL is not executed.
+- Week 5: added fail-closed SQL guardrails, sensitivity checks, row-count thresholds, approval persistence, and an explainable risk classifier. Generated SQL is still not executed.
 
 ## Repository layout
 
@@ -26,6 +27,13 @@ The project is split into an operational database and an agent-system database.
 - `database/sql_validator.py` - PostgreSQL syntax, statement-type, and schema validation.
 - `database/few_shot_examples.json` - schema-specific NL-to-SQL examples.
 - `database/eval_week4.py` - offline representative-query metrics.
+- `database/agent_schema_week5.sql` - additive Week 5 agent-schema migration and rule/sensitivity seeds.
+- `database/guardrails.py` - sqlglot-based rule engine and guardrail CLI.
+- `database/guardrail_store.py` - parameterized risk-assessment and approval persistence.
+- `database/build_guardrail_dataset.py` - deterministic template-derived classifier dataset builder.
+- `database/guardrail_dataset.csv` - 240 balanced template-derived classifier examples.
+- `database/risk_classifier.py` - logistic-regression training and prediction.
+- `database/eval_week5.py` - Week 5 safety and classifier evaluation.
 - `database/queries.sql` - example relational-algebra-style SQL queries.
 - `tests/` - parser, retrieval, SQL generation, and validation tests.
 
@@ -84,6 +92,8 @@ python database/sql_generator.py --interactive --session-id demo
 
 The Groq integration uses the `openai` Python SDK against Groq's OpenAI-compatible API.
 To use OpenAI instead, set `LLM_PROVIDER` to `openai` and provide `OPENAI_API_KEY`.
+LLM calls have a 30-second default timeout (`LLM_TIMEOUT_SECONDS` can override it)
+and at most one SDK retry.
 
 The generator prints a JSON `ActionPlan`. Reads are limited `SELECT` statements; writes
 require a `WHERE` on `UPDATE`/`DELETE` and include a matching `count_sql` query. DDL and
@@ -107,13 +117,68 @@ python database/eval_week4.py
 The reported rates describe the 20 curated fixtures, not live-model quality. The same
 representative cases can be used for later evaluation.
 
+## Week 5 guardrails
+
+Apply `database/agent_schema_week5.sql` after `database/agent_schema.sql` and the
+operational schema are installed. The migration extends the existing plural
+`policy_rules` and `column_sensitivity` tables rather than creating duplicate
+singular tables.
+
+Build the deterministic training data and classifier:
+
+```powershell
+python database/build_guardrail_dataset.py
+python database/risk_classifier.py
+```
+
+Dataset labels are generated from templates, not human annotations; review them
+before using the classifier for real decisions. The dataset is balanced at 80
+examples per verdict and records canonical table/column names from this schema.
+The stratified split contains examples drawn from the same templates, so its
+metrics are a smoke test rather than an independent estimate of production
+generalization.
+
+Run guardrails without PostgreSQL access, inspect a plan, or evaluate offline:
+
+```powershell
+python database/guardrails.py "show customers from France" --no-db
+python database/debug_guardrails.py "how many invoices per country" --no-db
+python database/eval_week5.py
+python database/eval_week5.py --adversarial
+python database/eval_week5.py --adversarial --delay 3 --only B12,B13
+```
+
+The offline evaluation prints the unsafe-action blocking rate, safe-query
+false-positive rate, verdict confusion matrix, and classifier macro F1; it saves
+the results in `database/week5_eval_results.json`.
+Adversarial mode requires `tests/adversarial_set.json` and the configured provider
+API key. LLM calls time out after 45 seconds by default (`LLM_TIMEOUT_SECONDS`
+overrides this); rate-limit responses are retried up to three times. It performs
+a 15-second startup health check, caps individual cases at
+60 seconds, waits 3 seconds between cases by default, and supports selecting case
+IDs with `--only`. It reports unsafe allowed/gated rates, safe-query false
+positives, verdict confusion, per-case progress and LLM call latency. LLM errors
+are reported separately and excluded from rates. Each run writes a new dated
+report under `results/` without replacing an earlier report.
+
+Writes are confirmed above 100 affected rows and blocked above 1,000. These
+thresholds are deliberately above the included sample table sizes (customers:
+3, products: 13, invoices: 5, invoice items: 13) while still bounding large
+bulk changes; they should be recalibrated against production volumes. If a
+write's count cannot be obtained, Week 5 requires confirmation. Configured
+PostgreSQL access runs only validated read-only count queries.
+
+The rule engine never executes generated SQL. An `ALLOW` is only a decision for
+the later execution stage, not execution itself. See
+[`docs/confirmation_rules.md`](./docs/confirmation_rules.md) for verdict behavior.
+
 ## Run tests
 
 ```bash
 pytest
 ```
 
-## Week 1-4 status
+## Week 1-5 status
 
 | Week | Status | Main output |
 | --- | --- | --- |
@@ -121,6 +186,7 @@ pytest
 | Week 2 | Complete | Schema metadata and schema lookup |
 | Week 3 | Complete | Intent parser, session memory, structured constraints, DDL detection |
 | Week 4 | Complete | LLM action-plan generation, SQL validation, offline representative-query evaluation |
+| Week 5 | Complete | SQL guardrails, row-limit and sensitivity rules, approval persistence, risk classifier and evaluation |
 
 ## Notes
 

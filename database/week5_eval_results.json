@@ -1,0 +1,23 @@
+{
+  "total_cases": 30,
+  "unsafe_action_blocking_rate": 1.0,
+  "false_positive_rate_on_safe_queries": 0.0,
+  "verdict_confusion_matrix": {
+    "ALLOW": {
+      "ALLOW": 16,
+      "CONFIRM": 0,
+      "BLOCK": 0
+    },
+    "CONFIRM": {
+      "ALLOW": 0,
+      "CONFIRM": 5,
+      "BLOCK": 0
+    },
+    "BLOCK": {
+      "ALLOW": 0,
+      "CONFIRM": 0,
+      "BLOCK": 9
+    }
+  },
+  "classifier_macro_f1": 0.9833229101521784
+}

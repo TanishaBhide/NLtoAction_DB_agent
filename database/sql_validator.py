@@ -18,6 +18,9 @@ class ValidationResult:
     errors: list[str] = field(default_factory=list)
     tables: list[str] = field(default_factory=list)
     columns: list[str] = field(default_factory=list)
+    column_references: list[tuple[str, str]] = field(default_factory=list)
+    projection_column_references: list[tuple[str, str]] = field(default_factory=list)
+    wildcard_tables: list[str] = field(default_factory=list)
     explain_message: str | None = None
 
 
@@ -57,10 +60,23 @@ class SQLValidator:
             return None, ["SQL must contain exactly one statement."]
         return statements[0], []
 
-    def _inspect_schema(self, statement: exp.Expression) -> tuple[list[str], list[str], list[str]]:
+    def _inspect_schema(
+        self,
+        statement: exp.Expression,
+    ) -> tuple[
+        list[str],
+        list[str],
+        list[str],
+        list[tuple[str, str]],
+        list[tuple[str, str]],
+        list[str],
+    ]:
         errors: list[str] = []
         table_aliases: dict[str, tuple[str, str]] = {}
         referenced_tables: list[str] = []
+        column_references: list[tuple[str, str]] = []
+        projection_column_references: list[tuple[str, str]] = []
+        wildcard_tables: list[str] = []
         cte_names = {
             cte.alias_or_name.casefold()
             for cte in statement.find_all(exp.CTE)
@@ -118,6 +134,60 @@ class SQLValidator:
                 for projection in select.expressions
             )
 
+        def visible_relations(column: exp.Column) -> list[tuple[str, str]]:
+            select = column.find_ancestor(exp.Select)
+            while select is not None:
+                sources: list[exp.Expression] = []
+                from_clause = select.args.get("from_")
+                if from_clause is not None and isinstance(from_clause.this, exp.Table):
+                    sources.append(from_clause.this)
+                for join in select.args.get("joins") or []:
+                    if isinstance(join.this, exp.Table):
+                        sources.append(join.this)
+                relations: list[tuple[str, str]] = []
+                for source in sources:
+                    alias = source.alias_or_name.casefold()
+                    relation = table_aliases.get(alias)
+                    if relation and relation not in relations:
+                        relations.append(relation)
+                if relations:
+                    return relations
+                select = select.find_ancestor(exp.Select)
+            return list(set(table_aliases.values()))
+
+        def is_raw_projection_reference(column: exp.Column) -> bool:
+            select = column.find_ancestor(exp.Select)
+            if select is None:
+                return False
+            if not any(column in projection.walk() for projection in select.expressions):
+                return False
+            parent = column.parent
+            while parent is not None and parent is not select:
+                if isinstance(parent, exp.AggFunc):
+                    return False
+                parent = parent.parent
+            return True
+
+        for star in statement.find_all(exp.Star):
+            if star.find_ancestor(exp.Count) is not None:
+                continue
+            if star.find_ancestor(exp.Select) is None:
+                continue
+            parent = star.parent
+            qualifier = parent.table.casefold() if isinstance(parent, exp.Column) else ""
+            if qualifier:
+                relation = table_aliases.get(qualifier)
+                if relation and relation[0] == "table":
+                    table_name = self.table_names[relation[1]]
+                    if table_name not in wildcard_tables:
+                        wildcard_tables.append(table_name)
+            else:
+                for relation_type, table_name in set(table_aliases.values()):
+                    if relation_type == "table":
+                        canonical = self.table_names[table_name]
+                        if canonical not in wildcard_tables:
+                            wildcard_tables.append(canonical)
+
         referenced_columns: list[str] = []
         for column in statement.find_all(exp.Column):
             name = column.name.casefold()
@@ -173,11 +243,10 @@ class SQLValidator:
             else:
                 if is_select_alias_reference(column, name):
                     continue
-                inside_cte = column.find_ancestor(exp.CTE) is not None
                 owners = []
-                for relation_type, table_name in set(table_aliases.values()):
+                for relation_type, table_name in visible_relations(column):
                     if relation_type == "cte":
-                        if not inside_cte and name in cte_columns.get(table_name, set()):
+                        if name in cte_columns.get(table_name, set()):
                             owners.append(("cte", table_name))
                     elif name in self.tables[table_name]:
                         owners.append(("table", table_name))
@@ -205,6 +274,18 @@ class SQLValidator:
             if len(set(owners)) > 1:
                 errors.append(f"Ambiguous unqualified column: {column.name}")
                 continue
+            resolved_table = owners[0][1] if not qualifier else table_name
+            if not qualifier and owners[0][0] == "table":
+                resolved_table = owners[0][1]
+            if not qualifier and owners[0][0] == "cte":
+                if column.name not in referenced_columns:
+                    referenced_columns.append(column.name)
+                continue
+            reference = (self.table_names[resolved_table], column.name)
+            if reference not in column_references:
+                column_references.append(reference)
+            if is_raw_projection_reference(column) and reference not in projection_column_references:
+                projection_column_references.append(reference)
             if column.name not in referenced_columns:
                 referenced_columns.append(column.name)
 
@@ -225,8 +306,19 @@ class SQLValidator:
                                 )
                             elif target_column.name not in referenced_columns:
                                 referenced_columns.append(target_column.name)
+                            if column_name in self.tables[table_name]:
+                                reference = (self.table_names[table_name], target_column.name)
+                                if reference not in column_references:
+                                    column_references.append(reference)
 
-        return referenced_tables, referenced_columns, errors
+        return (
+            referenced_tables,
+            referenced_columns,
+            errors,
+            column_references,
+            projection_column_references,
+            wildcard_tables,
+        )
 
     @staticmethod
     def _action_matches(statement: exp.Expression, action_type: str) -> bool:
@@ -271,13 +363,23 @@ class SQLValidator:
         if isinstance(statement, (exp.Update, exp.Delete)) and statement.args.get("where") is None:
             errors.append("UPDATE and DELETE statements must include WHERE.")
 
-        tables, columns, schema_errors = self._inspect_schema(statement)
+        (
+            tables,
+            columns,
+            schema_errors,
+            column_references,
+            projection_column_references,
+            wildcard_tables,
+        ) = self._inspect_schema(statement)
         errors.extend(schema_errors)
         result = ValidationResult(
             valid=not errors,
             errors=errors,
             tables=tables,
             columns=columns,
+            column_references=column_references,
+            projection_column_references=projection_column_references,
+            wildcard_tables=wildcard_tables,
         )
         if explain and result.valid:
             result.explain_message = self._explain(sql)
