@@ -58,6 +58,7 @@ class SQLGenerator:
         self.validator = SQLValidator(metadata)
         self.llm_client = llm_client
         self.explain = explain
+        self.last_parsed: ParsedIntent | None = None
 
     @staticmethod
     def _blocked(parsed: ParsedIntent, action_type: str, reason: str) -> ActionPlan:
@@ -179,8 +180,23 @@ class SQLGenerator:
             "Do not treat SELECT aliases as physical columns."
         )
 
-    def generate(self, text: str, session_id: str | None = None) -> ActionPlan:
+    def generate(
+        self,
+        text: str,
+        session_id: str | None = None,
+        *,
+        feedback: str | None = None,
+        memory_context: str | None = None,
+    ) -> ActionPlan:
+        """Generate one validated plan.
+
+        Week 7 additions: ``memory_context`` summarizes earlier turns of the
+        session and ``feedback`` carries the observation (database error or
+        result summary) from the previous ReAct attempt. Both are appended to
+        the user prompt; neither can relax validation.
+        """
         parsed = self.intent_parser.parse(text, session_id=session_id)
+        self.last_parsed = parsed
         if parsed.action_type == "ddl":
             return self._blocked(parsed, "ddl", "DDL is blocked; this week does not generate or execute DDL.")
         if parsed.action_type == "unknown":
@@ -192,6 +208,10 @@ class SQLGenerator:
             system, user, tool_schema = self.prompt_builder.build(parsed, text)
         except (TypeError, ValueError, KeyError) as error:
             return self._blocked(parsed, parsed.action_type, f"Invalid generated action plan: {error}")
+        if memory_context:
+            user += "\n\nSESSION MEMORY (earlier turns in this session):\n" + memory_context
+        if feedback:
+            user += "\n\nEXECUTION FEEDBACK FROM THE PREVIOUS ATTEMPT:\n" + feedback
         try:
             client = self.llm_client or create_llm_client()
             self.llm_client = client

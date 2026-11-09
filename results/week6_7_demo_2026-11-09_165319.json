@@ -1,0 +1,2496 @@
+{
+  "session_id": "demo-9964e28c2572",
+  "passed": 14,
+  "total": 14,
+  "scenarios": [
+    {
+      "id": "W6-1",
+      "title": "Read inside a READ ONLY sandbox",
+      "expected": "success",
+      "actual": "success",
+      "attempts": 1,
+      "passed": true,
+      "answer": "Returned 1 row(s) after 1 attempt(s).",
+      "steps": [
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "New request. No earlier turns in this session. First I need a validated SQL plan."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "generate_sql(attempt 1/3)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "READ plan (confidence 0.90): Customers whose country is France."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ ONLY transaction."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "read_only: Read returned 1 row(s) in a READ ONLY transaction (rolled back: nothing to commit)."
+        },
+        {
+          "attempt": 1,
+          "kind": "answer",
+          "text": "Returned 1 row(s) after 1 attempt(s)."
+        }
+      ],
+      "execution": {
+        "status": "read_only",
+        "action_type": "read",
+        "sql": "SELECT customer_id, country FROM customers WHERE country = 'France' LIMIT 100",
+        "reason": "Read returned 1 row(s) in a READ ONLY transaction (rolled back: nothing to commit).",
+        "executed_sql": "SELECT customer_id, country FROM customers WHERE country = 'France' LIMIT 100",
+        "columns": [
+          "customer_id",
+          "country"
+        ],
+        "rows": [
+          [
+            "12494",
+            "France"
+          ]
+        ],
+        "row_count": 1,
+        "truncated": false,
+        "affected_rows": null,
+        "expected_rows": null,
+        "transaction_id": "vxid 3/3025",
+        "checks": [],
+        "tx_log": [
+          {
+            "sql": "BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY",
+            "outcome": "BEGIN",
+            "ms": 0.45
+          },
+          {
+            "sql": "SET LOCAL statement_timeout = 5000",
+            "outcome": "SET",
+            "ms": 0.35
+          },
+          {
+            "sql": "SET LOCAL lock_timeout = 2000",
+            "outcome": "SET",
+            "ms": 0.25
+          },
+          {
+            "sql": "SELECT virtualtransaction FROM pg_locks WHERE pid = pg_backend_pid() AND locktype = 'virtualxid' LIMIT 1",
+            "outcome": "SELECT 1",
+            "ms": 1.3
+          },
+          {
+            "sql": "SELECT customer_id, country FROM customers WHERE country = 'France' LIMIT 100",
+            "outcome": "SELECT 1",
+            "ms": 1.82
+          },
+          {
+            "sql": "ROLLBACK",
+            "outcome": "ROLLBACK",
+            "ms": 0.52
+          }
+        ],
+        "error": null,
+        "compensation_sql": [],
+        "dry_run": false,
+        "duration_ms": 18.08,
+        "audit_id": 1,
+        "audit_warning": null
+      }
+    },
+    {
+      "id": "W6-2",
+      "title": "Committed write with pre-commit checks and undo SQL",
+      "expected": "success",
+      "actual": "success",
+      "attempts": 1,
+      "passed": true,
+      "answer": "UPDATE committed: 1 row(s) changed in transaction 2106. All 8 pre-commit checks passed. Undo SQL was stored in compensation_ledger.",
+      "steps": [
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "New request. Session memory holds 1 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "generate_sql(attempt 1/3)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "WRITE plan (confidence 0.90): Set quantity to 12 for one line item."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ WRITE transaction with pre-commit row and constraint checks."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "committed: All pre-commit checks passed; committed."
+        },
+        {
+          "attempt": 1,
+          "kind": "answer",
+          "text": "UPDATE committed: 1 row(s) changed in transaction 2106. All 8 pre-commit checks passed. Undo SQL was stored in compensation_ledger."
+        }
+      ],
+      "execution": {
+        "status": "committed",
+        "action_type": "write",
+        "sql": "UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' AND stock_code = '85123A'",
+        "reason": "All pre-commit checks passed; committed.",
+        "executed_sql": "UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' AND stock_code = '85123A' RETURNING *",
+        "columns": [
+          "invoice_item_id",
+          "invoice_no",
+          "stock_code",
+          "quantity",
+          "unit_price"
+        ],
+        "rows": [
+          [
+            1,
+            "536365",
+            "85123A",
+            12,
+            2.55
+          ]
+        ],
+        "row_count": 1,
+        "truncated": false,
+        "affected_rows": 1,
+        "expected_rows": 1,
+        "transaction_id": "2106",
+        "checks": [
+          {
+            "name": "deferred_constraints",
+            "passed": true,
+            "detail": "All deferrable constraints validated now."
+          },
+          {
+            "name": "rows_affected_nonzero",
+            "passed": true,
+            "detail": "1 row(s) affected"
+          },
+          {
+            "name": "rows_match_estimate",
+            "passed": true,
+            "detail": "estimated 1 by count_sql, actually affected 1"
+          },
+          {
+            "name": "row_limit",
+            "passed": true,
+            "detail": "1 <= 100 (unapproved write limit)"
+          },
+          {
+            "name": "invariant:invoices_keep_line_items",
+            "passed": true,
+            "detail": "Every invoice keeps at least one line item. violations before=0 after=0"
+          },
+          {
+            "name": "invariant:negative_qty_only_on_cancellations",
+            "passed": true,
+            "detail": "Negative quantities appear only on cancelled invoices. violations before=0 after=0"
+          },
+          {
+            "name": "invariant:negative_price_only_on_adjustments",
+            "passed": true,
+            "detail": "Negative unit prices appear only on adjustment invoices. violations before=0 after=0"
+          },
+          {
+            "name": "invariant:status_matches_invoice_prefix",
+            "passed": true,
+            "detail": "Invoice status agrees with the C/A invoice-number prefix. violations before=0 after=0"
+          }
+        ],
+        "tx_log": [
+          {
+            "sql": "BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE",
+            "outcome": "BEGIN",
+            "ms": 0.7
+          },
+          {
+            "sql": "SET LOCAL statement_timeout = 5000",
+            "outcome": "SET",
+            "ms": 0.53
+          },
+          {
+            "sql": "SET LOCAL lock_timeout = 2000",
+            "outcome": "SET",
+            "ms": 0.4
+          },
+          {
+            "sql": "SELECT txid_current()",
+            "outcome": "SELECT 1",
+            "ms": 0.88
+          },
+          {
+            "sql": "SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '85123A'",
+            "outcome": "SELECT 1",
+            "ms": 3.2
+          },
+          {
+            "sql": "-- invariant invoices_keep_line_items (before)\nSELECT COUNT(*) FROM invoices AS i WHERE NOT EXISTS (SELECT 1 FROM invoice_items AS ii WHERE ii.invoice_no = i.invoice_no)",
+            "outcome": "SELECT 1",
+            "ms": 2.2
+          },
+          {
+            "sql": "-- invariant negative_qty_only_on_cancellations (before)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.quantity < 0 AND i.status <> 'cancelled'",
+            "outcome": "SELECT 1",
+            "ms": 1.35
+          },
+          {
+            "sql": "-- invariant negative_price_only_on_adjustments (before)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.unit_price < 0 AND i.status <> 'adjustment'",
+            "outcome": "SELECT 1",
+            "ms": 1.78
+          },
+          {
+            "sql": "-- invariant status_matches_invoice_prefix (before)\nSELECT COUNT(*) FROM invoices WHERE (invoice_no LIKE 'C%' AND status <> 'cancelled') OR (invoice_no LIKE 'A%' AND status <> 'adjustment')",
+            "outcome": "SELECT 1",
+            "ms": 0.86
+          },
+          {
+            "sql": "-- before-image\nSELECT * FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '85123A' LIMIT 1001",
+            "outcome": "SELECT 1",
+            "ms": 0.68
+          },
+          {
+            "sql": "SAVEPOINT agent_write",
+            "outcome": "SAVEPOINT",
+            "ms": 0.39
+          },
+          {
+            "sql": "UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' AND stock_code = '85123A' RETURNING *",
+            "outcome": "UPDATE 1",
+            "ms": 0.9
+          },
+          {
+            "sql": "SET CONSTRAINTS ALL IMMEDIATE",
+            "outcome": "SET CONSTRAINTS",
+            "ms": 0.4
+          },
+          {
+            "sql": "-- invariant invoices_keep_line_items (after)\nSELECT COUNT(*) FROM invoices AS i WHERE NOT EXISTS (SELECT 1 FROM invoice_items AS ii WHERE ii.invoice_no = i.invoice_no)",
+            "outcome": "SELECT 1",
+            "ms": 0.63
+          },
+          {
+            "sql": "-- invariant negative_qty_only_on_cancellations (after)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.quantity < 0 AND i.status <> 'cancelled'",
+            "outcome": "SELECT 1",
+            "ms": 0.64
+          },
+          {
+            "sql": "-- invariant negative_price_only_on_adjustments (after)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.unit_price < 0 AND i.status <> 'adjustment'",
+            "outcome": "SELECT 1",
+            "ms": 0.62
+          },
+          {
+            "sql": "-- invariant status_matches_invoice_prefix (after)\nSELECT COUNT(*) FROM invoices WHERE (invoice_no LIKE 'C%' AND status <> 'cancelled') OR (invoice_no LIKE 'A%' AND status <> 'adjustment')",
+            "outcome": "SELECT 1",
+            "ms": 0.43
+          },
+          {
+            "sql": "RELEASE SAVEPOINT agent_write",
+            "outcome": "RELEASE",
+            "ms": 0.3
+          },
+          {
+            "sql": "COMMIT",
+            "outcome": "COMMIT",
+            "ms": 1.85
+          }
+        ],
+        "error": null,
+        "compensation_sql": [
+          "UPDATE invoice_items SET quantity = 6 WHERE invoice_item_id = 1"
+        ],
+        "dry_run": false,
+        "duration_ms": 46.64,
+        "audit_id": 2,
+        "audit_warning": null
+      }
+    },
+    {
+      "id": "W6-3",
+      "title": "Dry run: write executed, then rolled back",
+      "expected": "rolled_back",
+      "actual": "rolled_back",
+      "attempts": 1,
+      "passed": true,
+      "answer": "Rolled back, nothing changed: Dry run: every check passed, changes discarded.",
+      "steps": [
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "New request. Session memory holds 2 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "generate_sql(attempt 1/3)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "WRITE plan (confidence 0.90): Set quantity to 10 for one line item."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ WRITE transaction with pre-commit row and constraint checks."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "execute_sandboxed(plan) [dry run]"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "rolled_back: Dry run: every check passed, changes discarded."
+        },
+        {
+          "attempt": 1,
+          "kind": "answer",
+          "text": "Rolled back, nothing changed: Dry run: every check passed, changes discarded."
+        }
+      ],
+      "execution": {
+        "status": "rolled_back",
+        "action_type": "write",
+        "sql": "UPDATE invoice_items SET quantity = 10 WHERE invoice_no = '536365' AND stock_code = '84029G'",
+        "reason": "Dry run: every check passed, changes discarded.",
+        "executed_sql": "UPDATE invoice_items SET quantity = 10 WHERE invoice_no = '536365' AND stock_code = '84029G' RETURNING *",
+        "columns": [
+          "invoice_item_id",
+          "invoice_no",
+          "stock_code",
+          "quantity",
+          "unit_price"
+        ],
+        "rows": [
+          [
+            4,
+            "536365",
+            "84029G",
+            10,
+            3.39
+          ]
+        ],
+        "row_count": 1,
+        "truncated": false,
+        "affected_rows": 1,
+        "expected_rows": 1,
+        "transaction_id": "2119",
+        "checks": [
+          {
+            "name": "deferred_constraints",
+            "passed": true,
+            "detail": "All deferrable constraints validated now."
+          },
+          {
+            "name": "rows_affected_nonzero",
+            "passed": true,
+            "detail": "1 row(s) affected"
+          },
+          {
+            "name": "rows_match_estimate",
+            "passed": true,
+            "detail": "estimated 1 by count_sql, actually affected 1"
+          },
+          {
+            "name": "row_limit",
+            "passed": true,
+            "detail": "1 <= 100 (unapproved write limit)"
+          },
+          {
+            "name": "invariant:invoices_keep_line_items",
+            "passed": true,
+            "detail": "Every invoice keeps at least one line item. violations before=0 after=0"
+          },
+          {
+            "name": "invariant:negative_qty_only_on_cancellations",
+            "passed": true,
+            "detail": "Negative quantities appear only on cancelled invoices. violations before=0 after=0"
+          },
+          {
+            "name": "invariant:negative_price_only_on_adjustments",
+            "passed": true,
+            "detail": "Negative unit prices appear only on adjustment invoices. violations before=0 after=0"
+          },
+          {
+            "name": "invariant:status_matches_invoice_prefix",
+            "passed": true,
+            "detail": "Invoice status agrees with the C/A invoice-number prefix. violations before=0 after=0"
+          }
+        ],
+        "tx_log": [
+          {
+            "sql": "BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE",
+            "outcome": "BEGIN",
+            "ms": 0.49
+          },
+          {
+            "sql": "SET LOCAL statement_timeout = 5000",
+            "outcome": "SET",
+            "ms": 0.37
+          },
+          {
+            "sql": "SET LOCAL lock_timeout = 2000",
+            "outcome": "SET",
+            "ms": 0.37
+          },
+          {
+            "sql": "SELECT txid_current()",
+            "outcome": "SELECT 1",
+            "ms": 0.63
+          },
+          {
+            "sql": "SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '84029G'",
+            "outcome": "SELECT 1",
+            "ms": 2.55
+          },
+          {
+            "sql": "-- invariant invoices_keep_line_items (before)\nSELECT COUNT(*) FROM invoices AS i WHERE NOT EXISTS (SELECT 1 FROM invoice_items AS ii WHERE ii.invoice_no = i.invoice_no)",
+            "outcome": "SELECT 1",
+            "ms": 1.87
+          },
+          {
+            "sql": "-- invariant negative_qty_only_on_cancellations (before)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.quantity < 0 AND i.status <> 'cancelled'",
+            "outcome": "SELECT 1",
+            "ms": 0.78
+          },
+          {
+            "sql": "-- invariant negative_price_only_on_adjustments (before)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.unit_price < 0 AND i.status <> 'adjustment'",
+            "outcome": "SELECT 1",
+            "ms": 1.04
+          },
+          {
+            "sql": "-- invariant status_matches_invoice_prefix (before)\nSELECT COUNT(*) FROM invoices WHERE (invoice_no LIKE 'C%' AND status <> 'cancelled') OR (invoice_no LIKE 'A%' AND status <> 'adjustment')",
+            "outcome": "SELECT 1",
+            "ms": 0.65
+          },
+          {
+            "sql": "-- before-image\nSELECT * FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '84029G' LIMIT 1001",
+            "outcome": "SELECT 1",
+            "ms": 0.74
+          },
+          {
+            "sql": "SAVEPOINT agent_write",
+            "outcome": "SAVEPOINT",
+            "ms": 0.32
+          },
+          {
+            "sql": "UPDATE invoice_items SET quantity = 10 WHERE invoice_no = '536365' AND stock_code = '84029G' RETURNING *",
+            "outcome": "UPDATE 1",
+            "ms": 4.16
+          },
+          {
+            "sql": "SET CONSTRAINTS ALL IMMEDIATE",
+            "outcome": "SET CONSTRAINTS",
+            "ms": 0.35
+          },
+          {
+            "sql": "-- invariant invoices_keep_line_items (after)\nSELECT COUNT(*) FROM invoices AS i WHERE NOT EXISTS (SELECT 1 FROM invoice_items AS ii WHERE ii.invoice_no = i.invoice_no)",
+            "outcome": "SELECT 1",
+            "ms": 0.7
+          },
+          {
+            "sql": "-- invariant negative_qty_only_on_cancellations (after)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.quantity < 0 AND i.status <> 'cancelled'",
+            "outcome": "SELECT 1",
+            "ms": 0.69
+          },
+          {
+            "sql": "-- invariant negative_price_only_on_adjustments (after)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.unit_price < 0 AND i.status <> 'adjustment'",
+            "outcome": "SELECT 1",
+            "ms": 0.67
+          },
+          {
+            "sql": "-- invariant status_matches_invoice_prefix (after)\nSELECT COUNT(*) FROM invoices WHERE (invoice_no LIKE 'C%' AND status <> 'cancelled') OR (invoice_no LIKE 'A%' AND status <> 'adjustment')",
+            "outcome": "SELECT 1",
+            "ms": 0.79
+          },
+          {
+            "sql": "RELEASE SAVEPOINT agent_write",
+            "outcome": "RELEASE",
+            "ms": 0.8
+          },
+          {
+            "sql": "ROLLBACK",
+            "outcome": "ROLLBACK",
+            "ms": 0.93
+          }
+        ],
+        "error": null,
+        "compensation_sql": [],
+        "dry_run": true,
+        "duration_ms": 33.02,
+        "audit_id": 3,
+        "audit_warning": null
+      }
+    },
+    {
+      "id": "W6-4",
+      "title": "CHECK constraint violation captured",
+      "expected": "failed",
+      "actual": "failed",
+      "attempts": 1,
+      "passed": true,
+      "answer": "Could not complete the request: new row for relation \"invoice_items\" violates check constraint \"chk_invoice_items_quantity\". The change would break a database constraint; the request itself is invalid. Nothing was changed.",
+      "steps": [
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "New request. Session memory holds 3 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "generate_sql(attempt 1/3)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "WRITE plan (confidence 0.90): Set quantity to 0 for one line item."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ WRITE transaction with pre-commit row and constraint checks."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "failed: integrity_violation: new row for relation \"invoice_items\" violates check constraint \"chk_invoice_items_quantity\". Transaction rolled back; the database is unchanged."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "Stopping: a integrity_violation error means the request itself breaks a rule. The transaction was rolled back."
+        },
+        {
+          "attempt": 1,
+          "kind": "answer",
+          "text": "Could not complete the request: new row for relation \"invoice_items\" violates check constraint \"chk_invoice_items_quantity\". The change would break a database constraint; the request itself is invalid. Nothing was changed."
+        }
+      ],
+      "execution": {
+        "status": "failed",
+        "action_type": "write",
+        "sql": "UPDATE invoice_items SET quantity = 0 WHERE invoice_no = '536365' AND stock_code = '71053'",
+        "reason": "integrity_violation: new row for relation \"invoice_items\" violates check constraint \"chk_invoice_items_quantity\". Transaction rolled back; the database is unchanged.",
+        "executed_sql": "UPDATE invoice_items SET quantity = 0 WHERE invoice_no = '536365' AND stock_code = '71053' RETURNING *",
+        "columns": [],
+        "rows": [],
+        "row_count": 0,
+        "truncated": false,
+        "affected_rows": null,
+        "expected_rows": 1,
+        "transaction_id": "2132",
+        "checks": [],
+        "tx_log": [
+          {
+            "sql": "BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE",
+            "outcome": "BEGIN",
+            "ms": 0.61
+          },
+          {
+            "sql": "SET LOCAL statement_timeout = 5000",
+            "outcome": "SET",
+            "ms": 0.52
+          },
+          {
+            "sql": "SET LOCAL lock_timeout = 2000",
+            "outcome": "SET",
+            "ms": 0.39
+          },
+          {
+            "sql": "SELECT txid_current()",
+            "outcome": "SELECT 1",
+            "ms": 0.9
+          },
+          {
+            "sql": "SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '71053'",
+            "outcome": "SELECT 1",
+            "ms": 3.92
+          },
+          {
+            "sql": "-- invariant invoices_keep_line_items (before)\nSELECT COUNT(*) FROM invoices AS i WHERE NOT EXISTS (SELECT 1 FROM invoice_items AS ii WHERE ii.invoice_no = i.invoice_no)",
+            "outcome": "SELECT 1",
+            "ms": 1.84
+          },
+          {
+            "sql": "-- invariant negative_qty_only_on_cancellations (before)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.quantity < 0 AND i.status <> 'cancelled'",
+            "outcome": "SELECT 1",
+            "ms": 0.83
+          },
+          {
+            "sql": "-- invariant negative_price_only_on_adjustments (before)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.unit_price < 0 AND i.status <> 'adjustment'",
+            "outcome": "SELECT 1",
+            "ms": 1.17
+          },
+          {
+            "sql": "-- invariant status_matches_invoice_prefix (before)\nSELECT COUNT(*) FROM invoices WHERE (invoice_no LIKE 'C%' AND status <> 'cancelled') OR (invoice_no LIKE 'A%' AND status <> 'adjustment')",
+            "outcome": "SELECT 1",
+            "ms": 0.82
+          },
+          {
+            "sql": "-- before-image\nSELECT * FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '71053' LIMIT 1001",
+            "outcome": "SELECT 1",
+            "ms": 0.77
+          },
+          {
+            "sql": "SAVEPOINT agent_write",
+            "outcome": "SAVEPOINT",
+            "ms": 0.41
+          },
+          {
+            "sql": "UPDATE invoice_items SET quantity = 0 WHERE invoice_no = '536365' AND stock_code = '71053' RETURNING *",
+            "outcome": "ERROR 23514",
+            "ms": 0.99
+          },
+          {
+            "sql": "ROLLBACK",
+            "outcome": "ROLLBACK",
+            "ms": 0.46
+          }
+        ],
+        "error": {
+          "sqlstate": "23514",
+          "error_name": "CheckViolation",
+          "category": "integrity_violation",
+          "message": "new row for relation \"invoice_items\" violates check constraint \"chk_invoice_items_quantity\"",
+          "detail": "Failing row contains (2, 536365, 71053, 0, 3.39).",
+          "hint": null,
+          "constraint": "chk_invoice_items_quantity",
+          "table": "invoice_items",
+          "column": null,
+          "retryable": false,
+          "explanation": "The change would break a database constraint; the request itself is invalid."
+        },
+        "compensation_sql": [],
+        "dry_run": false,
+        "duration_ms": 43.81,
+        "audit_id": 4,
+        "audit_warning": null
+      }
+    },
+    {
+      "id": "W6-5",
+      "title": "Trigger (business rule) rejection captured",
+      "expected": "failed",
+      "actual": "failed",
+      "attempts": 1,
+      "passed": true,
+      "answer": "Could not complete the request: negative unit_price is only allowed for adjustment invoices. A database trigger rejected the change as a business-rule violation. Nothing was changed.",
+      "steps": [
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "New request. Session memory holds 4 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "generate_sql(attempt 1/3)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "WRITE plan (confidence 0.90): Set unit price to -5 for one line item."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ WRITE transaction with pre-commit row and constraint checks."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "failed: business_rule_trigger: negative unit_price is only allowed for adjustment invoices. Transaction rolled back; the database is unchanged."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "Stopping: a business_rule_trigger error means the request itself breaks a rule. The transaction was rolled back."
+        },
+        {
+          "attempt": 1,
+          "kind": "answer",
+          "text": "Could not complete the request: negative unit_price is only allowed for adjustment invoices. A database trigger rejected the change as a business-rule violation. Nothing was changed."
+        }
+      ],
+      "execution": {
+        "status": "failed",
+        "action_type": "write",
+        "sql": "UPDATE invoice_items SET unit_price = -5 WHERE invoice_no = '536365' AND stock_code = '22752'",
+        "reason": "business_rule_trigger: negative unit_price is only allowed for adjustment invoices. Transaction rolled back; the database is unchanged.",
+        "executed_sql": "UPDATE invoice_items SET unit_price = -5 WHERE invoice_no = '536365' AND stock_code = '22752' RETURNING *",
+        "columns": [],
+        "rows": [],
+        "row_count": 0,
+        "truncated": false,
+        "affected_rows": null,
+        "expected_rows": 1,
+        "transaction_id": "2146",
+        "checks": [],
+        "tx_log": [
+          {
+            "sql": "BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE",
+            "outcome": "BEGIN",
+            "ms": 0.69
+          },
+          {
+            "sql": "SET LOCAL statement_timeout = 5000",
+            "outcome": "SET",
+            "ms": 0.6
+          },
+          {
+            "sql": "SET LOCAL lock_timeout = 2000",
+            "outcome": "SET",
+            "ms": 0.46
+          },
+          {
+            "sql": "SELECT txid_current()",
+            "outcome": "SELECT 1",
+            "ms": 0.83
+          },
+          {
+            "sql": "SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '22752'",
+            "outcome": "SELECT 1",
+            "ms": 3.79
+          },
+          {
+            "sql": "-- invariant invoices_keep_line_items (before)\nSELECT COUNT(*) FROM invoices AS i WHERE NOT EXISTS (SELECT 1 FROM invoice_items AS ii WHERE ii.invoice_no = i.invoice_no)",
+            "outcome": "SELECT 1",
+            "ms": 2.08
+          },
+          {
+            "sql": "-- invariant negative_qty_only_on_cancellations (before)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.quantity < 0 AND i.status <> 'cancelled'",
+            "outcome": "SELECT 1",
+            "ms": 0.95
+          },
+          {
+            "sql": "-- invariant negative_price_only_on_adjustments (before)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.unit_price < 0 AND i.status <> 'adjustment'",
+            "outcome": "SELECT 1",
+            "ms": 1.66
+          },
+          {
+            "sql": "-- invariant status_matches_invoice_prefix (before)\nSELECT COUNT(*) FROM invoices WHERE (invoice_no LIKE 'C%' AND status <> 'cancelled') OR (invoice_no LIKE 'A%' AND status <> 'adjustment')",
+            "outcome": "SELECT 1",
+            "ms": 0.71
+          },
+          {
+            "sql": "-- before-image\nSELECT * FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '22752' LIMIT 1001",
+            "outcome": "SELECT 1",
+            "ms": 0.72
+          },
+          {
+            "sql": "SAVEPOINT agent_write",
+            "outcome": "SAVEPOINT",
+            "ms": 0.35
+          },
+          {
+            "sql": "UPDATE invoice_items SET unit_price = -5 WHERE invoice_no = '536365' AND stock_code = '22752' RETURNING *",
+            "outcome": "ERROR P0001",
+            "ms": 1.85
+          },
+          {
+            "sql": "ROLLBACK",
+            "outcome": "ROLLBACK",
+            "ms": 0.5
+          }
+        ],
+        "error": {
+          "sqlstate": "P0001",
+          "error_name": "RaiseException",
+          "category": "business_rule_trigger",
+          "message": "negative unit_price is only allowed for adjustment invoices",
+          "detail": null,
+          "hint": null,
+          "constraint": null,
+          "table": null,
+          "column": null,
+          "retryable": false,
+          "explanation": "A database trigger rejected the change as a business-rule violation."
+        },
+        "compensation_sql": [],
+        "dry_run": false,
+        "duration_ms": 45.23,
+        "audit_id": 5,
+        "audit_warning": null
+      }
+    },
+    {
+      "id": "W6-6",
+      "title": "Foreign-key violation captured",
+      "expected": "failed",
+      "actual": "failed",
+      "attempts": 1,
+      "passed": true,
+      "answer": "Could not complete the request: update or delete on table \"products\" violates foreign key constraint \"fk_invoice_items_product\" on table \"invoice_items\". The change would break a database constraint; the request itself is invalid. Nothing was changed.",
+      "steps": [
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "New request. Session memory holds 5 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "generate_sql(attempt 1/3)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "WRITE plan (confidence 0.90): Delete one product by stock code."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ WRITE transaction with pre-commit row and constraint checks."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "failed: integrity_violation: update or delete on table \"products\" violates foreign key constraint \"fk_invoice_items_product\" on table \"invoice_items\". Transaction rolled back; the database is unchanged."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "Stopping: a integrity_violation error means the request itself breaks a rule. The transaction was rolled back."
+        },
+        {
+          "attempt": 1,
+          "kind": "answer",
+          "text": "Could not complete the request: update or delete on table \"products\" violates foreign key constraint \"fk_invoice_items_product\" on table \"invoice_items\". The change would break a database constraint; the request itself is invalid. Nothing was changed."
+        }
+      ],
+      "execution": {
+        "status": "failed",
+        "action_type": "write",
+        "sql": "DELETE FROM products WHERE stock_code = '84406B'",
+        "reason": "integrity_violation: update or delete on table \"products\" violates foreign key constraint \"fk_invoice_items_product\" on table \"invoice_items\". Transaction rolled back; the database is unchanged.",
+        "executed_sql": "DELETE FROM products WHERE stock_code = '84406B' RETURNING *",
+        "columns": [],
+        "rows": [],
+        "row_count": 0,
+        "truncated": false,
+        "affected_rows": null,
+        "expected_rows": 1,
+        "transaction_id": "2160",
+        "checks": [],
+        "tx_log": [
+          {
+            "sql": "BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE",
+            "outcome": "BEGIN",
+            "ms": 0.51
+          },
+          {
+            "sql": "SET LOCAL statement_timeout = 5000",
+            "outcome": "SET",
+            "ms": 0.36
+          },
+          {
+            "sql": "SET LOCAL lock_timeout = 2000",
+            "outcome": "SET",
+            "ms": 0.28
+          },
+          {
+            "sql": "SELECT txid_current()",
+            "outcome": "SELECT 1",
+            "ms": 0.52
+          },
+          {
+            "sql": "SELECT COUNT(*) FROM products WHERE stock_code = '84406B'",
+            "outcome": "SELECT 1",
+            "ms": 2.27
+          },
+          {
+            "sql": "-- invariant invoices_keep_line_items (before)\nSELECT COUNT(*) FROM invoices AS i WHERE NOT EXISTS (SELECT 1 FROM invoice_items AS ii WHERE ii.invoice_no = i.invoice_no)",
+            "outcome": "SELECT 1",
+            "ms": 1.99
+          },
+          {
+            "sql": "-- invariant negative_qty_only_on_cancellations (before)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.quantity < 0 AND i.status <> 'cancelled'",
+            "outcome": "SELECT 1",
+            "ms": 0.85
+          },
+          {
+            "sql": "-- invariant negative_price_only_on_adjustments (before)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.unit_price < 0 AND i.status <> 'adjustment'",
+            "outcome": "SELECT 1",
+            "ms": 1.11
+          },
+          {
+            "sql": "-- invariant status_matches_invoice_prefix (before)\nSELECT COUNT(*) FROM invoices WHERE (invoice_no LIKE 'C%' AND status <> 'cancelled') OR (invoice_no LIKE 'A%' AND status <> 'adjustment')",
+            "outcome": "SELECT 1",
+            "ms": 1.22
+          },
+          {
+            "sql": "-- before-image\nSELECT * FROM products WHERE stock_code = '84406B' LIMIT 1001",
+            "outcome": "SELECT 1",
+            "ms": 0.87
+          },
+          {
+            "sql": "SAVEPOINT agent_write",
+            "outcome": "SAVEPOINT",
+            "ms": 0.44
+          },
+          {
+            "sql": "DELETE FROM products WHERE stock_code = '84406B' RETURNING *",
+            "outcome": "ERROR 23503",
+            "ms": 1.56
+          },
+          {
+            "sql": "ROLLBACK",
+            "outcome": "ROLLBACK",
+            "ms": 0.54
+          }
+        ],
+        "error": {
+          "sqlstate": "23503",
+          "error_name": "ForeignKeyViolation",
+          "category": "integrity_violation",
+          "message": "update or delete on table \"products\" violates foreign key constraint \"fk_invoice_items_product\" on table \"invoice_items\"",
+          "detail": "Key (stock_code)=(84406B) is still referenced from table \"invoice_items\".",
+          "hint": null,
+          "constraint": "fk_invoice_items_product",
+          "table": "invoice_items",
+          "column": null,
+          "retryable": false,
+          "explanation": "The change would break a database constraint; the request itself is invalid."
+        },
+        "compensation_sql": [],
+        "dry_run": false,
+        "duration_ms": 27.24,
+        "audit_id": 6,
+        "audit_warning": null
+      }
+    },
+    {
+      "id": "W6-7",
+      "title": "Pre-commit invariant check rolls back a valid-looking write",
+      "expected": "rolled_back",
+      "actual": "rolled_back",
+      "attempts": 1,
+      "passed": true,
+      "answer": "Rolled back. Pre-commit check failed: invariant:negative_qty_only_on_cancellations (Negative quantities appear only on cancelled invoices. violations before=0 after=1)",
+      "steps": [
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "New request. Session memory holds 6 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "generate_sql(attempt 1/3)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "WRITE plan (confidence 0.90): Set quantity to -3 for one line item."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ WRITE transaction with pre-commit row and constraint checks."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "rolled_back: Pre-commit check(s) failed: invariant:negative_qty_only_on_cancellations. Transaction rolled back; the database is unchanged."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The SQL ran, but a pre-commit check failed, so it was rolled back. The plan does what was asked; the request breaks a data rule. Not retrying."
+        },
+        {
+          "attempt": 1,
+          "kind": "answer",
+          "text": "Rolled back. Pre-commit check failed: invariant:negative_qty_only_on_cancellations (Negative quantities appear only on cancelled invoices. violations before=0 after=1)"
+        }
+      ],
+      "execution": {
+        "status": "rolled_back",
+        "action_type": "write",
+        "sql": "UPDATE invoice_items SET quantity = -3 WHERE invoice_no = '536365' AND stock_code = '21730'",
+        "reason": "Pre-commit check(s) failed: invariant:negative_qty_only_on_cancellations. Transaction rolled back; the database is unchanged.",
+        "executed_sql": "UPDATE invoice_items SET quantity = -3 WHERE invoice_no = '536365' AND stock_code = '21730' RETURNING *",
+        "columns": [
+          "invoice_item_id",
+          "invoice_no",
+          "stock_code",
+          "quantity",
+          "unit_price"
+        ],
+        "rows": [
+          [
+            7,
+            "536365",
+            "21730",
+            -3,
+            4.25
+          ]
+        ],
+        "row_count": 1,
+        "truncated": false,
+        "affected_rows": 1,
+        "expected_rows": 1,
+        "transaction_id": "2174",
+        "checks": [
+          {
+            "name": "deferred_constraints",
+            "passed": true,
+            "detail": "All deferrable constraints validated now."
+          },
+          {
+            "name": "rows_affected_nonzero",
+            "passed": true,
+            "detail": "1 row(s) affected"
+          },
+          {
+            "name": "rows_match_estimate",
+            "passed": true,
+            "detail": "estimated 1 by count_sql, actually affected 1"
+          },
+          {
+            "name": "row_limit",
+            "passed": true,
+            "detail": "1 <= 100 (unapproved write limit)"
+          },
+          {
+            "name": "invariant:invoices_keep_line_items",
+            "passed": true,
+            "detail": "Every invoice keeps at least one line item. violations before=0 after=0"
+          },
+          {
+            "name": "invariant:negative_qty_only_on_cancellations",
+            "passed": false,
+            "detail": "Negative quantities appear only on cancelled invoices. violations before=0 after=1"
+          },
+          {
+            "name": "invariant:negative_price_only_on_adjustments",
+            "passed": true,
+            "detail": "Negative unit prices appear only on adjustment invoices. violations before=0 after=0"
+          },
+          {
+            "name": "invariant:status_matches_invoice_prefix",
+            "passed": true,
+            "detail": "Invoice status agrees with the C/A invoice-number prefix. violations before=0 after=0"
+          }
+        ],
+        "tx_log": [
+          {
+            "sql": "BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE",
+            "outcome": "BEGIN",
+            "ms": 0.4
+          },
+          {
+            "sql": "SET LOCAL statement_timeout = 5000",
+            "outcome": "SET",
+            "ms": 0.29
+          },
+          {
+            "sql": "SET LOCAL lock_timeout = 2000",
+            "outcome": "SET",
+            "ms": 0.27
+          },
+          {
+            "sql": "SELECT txid_current()",
+            "outcome": "SELECT 1",
+            "ms": 0.93
+          },
+          {
+            "sql": "SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '21730'",
+            "outcome": "SELECT 1",
+            "ms": 2.55
+          },
+          {
+            "sql": "-- invariant invoices_keep_line_items (before)\nSELECT COUNT(*) FROM invoices AS i WHERE NOT EXISTS (SELECT 1 FROM invoice_items AS ii WHERE ii.invoice_no = i.invoice_no)",
+            "outcome": "SELECT 1",
+            "ms": 1.52
+          },
+          {
+            "sql": "-- invariant negative_qty_only_on_cancellations (before)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.quantity < 0 AND i.status <> 'cancelled'",
+            "outcome": "SELECT 1",
+            "ms": 0.71
+          },
+          {
+            "sql": "-- invariant negative_price_only_on_adjustments (before)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.unit_price < 0 AND i.status <> 'adjustment'",
+            "outcome": "SELECT 1",
+            "ms": 1.31
+          },
+          {
+            "sql": "-- invariant status_matches_invoice_prefix (before)\nSELECT COUNT(*) FROM invoices WHERE (invoice_no LIKE 'C%' AND status <> 'cancelled') OR (invoice_no LIKE 'A%' AND status <> 'adjustment')",
+            "outcome": "SELECT 1",
+            "ms": 0.9
+          },
+          {
+            "sql": "-- before-image\nSELECT * FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '21730' LIMIT 1001",
+            "outcome": "SELECT 1",
+            "ms": 0.66
+          },
+          {
+            "sql": "SAVEPOINT agent_write",
+            "outcome": "SAVEPOINT",
+            "ms": 0.51
+          },
+          {
+            "sql": "UPDATE invoice_items SET quantity = -3 WHERE invoice_no = '536365' AND stock_code = '21730' RETURNING *",
+            "outcome": "UPDATE 1",
+            "ms": 0.78
+          },
+          {
+            "sql": "SET CONSTRAINTS ALL IMMEDIATE",
+            "outcome": "SET CONSTRAINTS",
+            "ms": 0.72
+          },
+          {
+            "sql": "-- invariant invoices_keep_line_items (after)\nSELECT COUNT(*) FROM invoices AS i WHERE NOT EXISTS (SELECT 1 FROM invoice_items AS ii WHERE ii.invoice_no = i.invoice_no)",
+            "outcome": "SELECT 1",
+            "ms": 0.65
+          },
+          {
+            "sql": "-- invariant negative_qty_only_on_cancellations (after)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.quantity < 0 AND i.status <> 'cancelled'",
+            "outcome": "SELECT 1",
+            "ms": 0.51
+          },
+          {
+            "sql": "-- invariant negative_price_only_on_adjustments (after)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.unit_price < 0 AND i.status <> 'adjustment'",
+            "outcome": "SELECT 1",
+            "ms": 0.45
+          },
+          {
+            "sql": "-- invariant status_matches_invoice_prefix (after)\nSELECT COUNT(*) FROM invoices WHERE (invoice_no LIKE 'C%' AND status <> 'cancelled') OR (invoice_no LIKE 'A%' AND status <> 'adjustment')",
+            "outcome": "SELECT 1",
+            "ms": 0.34
+          },
+          {
+            "sql": "ROLLBACK",
+            "outcome": "ROLLBACK",
+            "ms": 0.35
+          }
+        ],
+        "error": null,
+        "compensation_sql": [],
+        "dry_run": false,
+        "duration_ms": 27.66,
+        "audit_id": 7,
+        "audit_warning": null
+      }
+    },
+    {
+      "id": "W6-8",
+      "title": "Pre-commit check: an invoice would lose all its line items",
+      "expected": "rolled_back",
+      "actual": "rolled_back",
+      "attempts": 1,
+      "passed": true,
+      "answer": "Rolled back. Pre-commit check failed: invariant:invoices_keep_line_items (Every invoice keeps at least one line item. violations before=0 after=1)",
+      "steps": [
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "New request. Session memory holds 7 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "generate_sql(attempt 1/3)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "WRITE plan (confidence 0.90): Delete the line items of one invoice."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ WRITE transaction with pre-commit row and constraint checks."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "rolled_back: Pre-commit check(s) failed: invariant:invoices_keep_line_items. Transaction rolled back; the database is unchanged."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The SQL ran, but a pre-commit check failed, so it was rolled back. The plan does what was asked; the request breaks a data rule. Not retrying."
+        },
+        {
+          "attempt": 1,
+          "kind": "answer",
+          "text": "Rolled back. Pre-commit check failed: invariant:invoices_keep_line_items (Every invoice keeps at least one line item. violations before=0 after=1)"
+        }
+      ],
+      "execution": {
+        "status": "rolled_back",
+        "action_type": "write",
+        "sql": "DELETE FROM invoice_items WHERE invoice_no = '536414'",
+        "reason": "Pre-commit check(s) failed: invariant:invoices_keep_line_items. Transaction rolled back; the database is unchanged.",
+        "executed_sql": "DELETE FROM invoice_items WHERE invoice_no = '536414' RETURNING *",
+        "columns": [
+          "invoice_item_id",
+          "invoice_no",
+          "stock_code",
+          "quantity",
+          "unit_price"
+        ],
+        "rows": [
+          [
+            11,
+            "536414",
+            "22139",
+            56,
+            0.0
+          ]
+        ],
+        "row_count": 1,
+        "truncated": false,
+        "affected_rows": 1,
+        "expected_rows": 1,
+        "transaction_id": "2188",
+        "checks": [
+          {
+            "name": "deferred_constraints",
+            "passed": true,
+            "detail": "All deferrable constraints validated now."
+          },
+          {
+            "name": "rows_affected_nonzero",
+            "passed": true,
+            "detail": "1 row(s) affected"
+          },
+          {
+            "name": "rows_match_estimate",
+            "passed": true,
+            "detail": "estimated 1 by count_sql, actually affected 1"
+          },
+          {
+            "name": "row_limit",
+            "passed": true,
+            "detail": "1 <= 100 (unapproved write limit)"
+          },
+          {
+            "name": "invariant:invoices_keep_line_items",
+            "passed": false,
+            "detail": "Every invoice keeps at least one line item. violations before=0 after=1"
+          },
+          {
+            "name": "invariant:negative_qty_only_on_cancellations",
+            "passed": true,
+            "detail": "Negative quantities appear only on cancelled invoices. violations before=0 after=0"
+          },
+          {
+            "name": "invariant:negative_price_only_on_adjustments",
+            "passed": true,
+            "detail": "Negative unit prices appear only on adjustment invoices. violations before=0 after=0"
+          },
+          {
+            "name": "invariant:status_matches_invoice_prefix",
+            "passed": true,
+            "detail": "Invoice status agrees with the C/A invoice-number prefix. violations before=0 after=0"
+          }
+        ],
+        "tx_log": [
+          {
+            "sql": "BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE",
+            "outcome": "BEGIN",
+            "ms": 0.49
+          },
+          {
+            "sql": "SET LOCAL statement_timeout = 5000",
+            "outcome": "SET",
+            "ms": 0.41
+          },
+          {
+            "sql": "SET LOCAL lock_timeout = 2000",
+            "outcome": "SET",
+            "ms": 0.32
+          },
+          {
+            "sql": "SELECT txid_current()",
+            "outcome": "SELECT 1",
+            "ms": 0.9
+          },
+          {
+            "sql": "SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536414'",
+            "outcome": "SELECT 1",
+            "ms": 2.44
+          },
+          {
+            "sql": "-- invariant invoices_keep_line_items (before)\nSELECT COUNT(*) FROM invoices AS i WHERE NOT EXISTS (SELECT 1 FROM invoice_items AS ii WHERE ii.invoice_no = i.invoice_no)",
+            "outcome": "SELECT 1",
+            "ms": 1.34
+          },
+          {
+            "sql": "-- invariant negative_qty_only_on_cancellations (before)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.quantity < 0 AND i.status <> 'cancelled'",
+            "outcome": "SELECT 1",
+            "ms": 0.83
+          },
+          {
+            "sql": "-- invariant negative_price_only_on_adjustments (before)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.unit_price < 0 AND i.status <> 'adjustment'",
+            "outcome": "SELECT 1",
+            "ms": 1.26
+          },
+          {
+            "sql": "-- invariant status_matches_invoice_prefix (before)\nSELECT COUNT(*) FROM invoices WHERE (invoice_no LIKE 'C%' AND status <> 'cancelled') OR (invoice_no LIKE 'A%' AND status <> 'adjustment')",
+            "outcome": "SELECT 1",
+            "ms": 0.56
+          },
+          {
+            "sql": "-- before-image\nSELECT * FROM invoice_items WHERE invoice_no = '536414' LIMIT 1001",
+            "outcome": "SELECT 1",
+            "ms": 0.54
+          },
+          {
+            "sql": "SAVEPOINT agent_write",
+            "outcome": "SAVEPOINT",
+            "ms": 0.25
+          },
+          {
+            "sql": "DELETE FROM invoice_items WHERE invoice_no = '536414' RETURNING *",
+            "outcome": "DELETE 1",
+            "ms": 0.47
+          },
+          {
+            "sql": "SET CONSTRAINTS ALL IMMEDIATE",
+            "outcome": "SET CONSTRAINTS",
+            "ms": 0.28
+          },
+          {
+            "sql": "-- invariant invoices_keep_line_items (after)\nSELECT COUNT(*) FROM invoices AS i WHERE NOT EXISTS (SELECT 1 FROM invoice_items AS ii WHERE ii.invoice_no = i.invoice_no)",
+            "outcome": "SELECT 1",
+            "ms": 0.41
+          },
+          {
+            "sql": "-- invariant negative_qty_only_on_cancellations (after)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.quantity < 0 AND i.status <> 'cancelled'",
+            "outcome": "SELECT 1",
+            "ms": 0.41
+          },
+          {
+            "sql": "-- invariant negative_price_only_on_adjustments (after)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.unit_price < 0 AND i.status <> 'adjustment'",
+            "outcome": "SELECT 1",
+            "ms": 0.55
+          },
+          {
+            "sql": "-- invariant status_matches_invoice_prefix (after)\nSELECT COUNT(*) FROM invoices WHERE (invoice_no LIKE 'C%' AND status <> 'cancelled') OR (invoice_no LIKE 'A%' AND status <> 'adjustment')",
+            "outcome": "SELECT 1",
+            "ms": 0.35
+          },
+          {
+            "sql": "ROLLBACK",
+            "outcome": "ROLLBACK",
+            "ms": 0.35
+          }
+        ],
+        "error": null,
+        "compensation_sql": [],
+        "dry_run": false,
+        "duration_ms": 25.98,
+        "audit_id": 8,
+        "audit_warning": null
+      }
+    },
+    {
+      "id": "W6-9",
+      "title": "Guardrail CONFIRM -> human approval -> commit",
+      "expected": "success",
+      "actual": "success",
+      "attempts": 1,
+      "passed": true,
+      "answer": "INSERT committed: 1 row(s) changed in transaction 2205. All 8 pre-commit checks passed. Undo SQL was stored in compensation_ledger.",
+      "steps": [
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "New request. Session memory holds 8 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "generate_sql(attempt 1/3)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "WRITE plan (confidence 0.90): Insert one new product."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Verdict CONFIRM (risk 60): Classifier confidence is below 0.60; escalated to confirmation.; Risk classifier escalated the verdict to CONFIRM."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The verdict is CONFIRM, so a human must approve before execution."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "request_human_approval(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Approved by the user."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ WRITE transaction with pre-commit row and constraint checks."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "committed: All pre-commit checks passed; committed."
+        },
+        {
+          "attempt": 1,
+          "kind": "answer",
+          "text": "INSERT committed: 1 row(s) changed in transaction 2205. All 8 pre-commit checks passed. Undo SQL was stored in compensation_ledger."
+        }
+      ],
+      "execution": {
+        "status": "committed",
+        "action_type": "write",
+        "sql": "INSERT INTO products (stock_code, description) VALUES ('99999', 'TEST MUG')",
+        "reason": "All pre-commit checks passed; committed.",
+        "executed_sql": "INSERT INTO products (stock_code, description) VALUES ('99999', 'TEST MUG') RETURNING *",
+        "columns": [
+          "stock_code",
+          "description"
+        ],
+        "rows": [
+          [
+            "99999",
+            "TEST MUG"
+          ]
+        ],
+        "row_count": 1,
+        "truncated": false,
+        "affected_rows": 1,
+        "expected_rows": 1,
+        "transaction_id": "2205",
+        "checks": [
+          {
+            "name": "deferred_constraints",
+            "passed": true,
+            "detail": "All deferrable constraints validated now."
+          },
+          {
+            "name": "rows_affected_nonzero",
+            "passed": true,
+            "detail": "1 row(s) affected"
+          },
+          {
+            "name": "rows_match_estimate",
+            "passed": true,
+            "detail": "estimated 1 by count_sql, actually affected 1"
+          },
+          {
+            "name": "row_limit",
+            "passed": true,
+            "detail": "1 <= 1000 (approved write limit)"
+          },
+          {
+            "name": "invariant:invoices_keep_line_items",
+            "passed": true,
+            "detail": "Every invoice keeps at least one line item. violations before=0 after=0"
+          },
+          {
+            "name": "invariant:negative_qty_only_on_cancellations",
+            "passed": true,
+            "detail": "Negative quantities appear only on cancelled invoices. violations before=0 after=0"
+          },
+          {
+            "name": "invariant:negative_price_only_on_adjustments",
+            "passed": true,
+            "detail": "Negative unit prices appear only on adjustment invoices. violations before=0 after=0"
+          },
+          {
+            "name": "invariant:status_matches_invoice_prefix",
+            "passed": true,
+            "detail": "Invoice status agrees with the C/A invoice-number prefix. violations before=0 after=0"
+          }
+        ],
+        "tx_log": [
+          {
+            "sql": "BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE",
+            "outcome": "BEGIN",
+            "ms": 0.76
+          },
+          {
+            "sql": "SET LOCAL statement_timeout = 5000",
+            "outcome": "SET",
+            "ms": 0.49
+          },
+          {
+            "sql": "SET LOCAL lock_timeout = 2000",
+            "outcome": "SET",
+            "ms": 0.44
+          },
+          {
+            "sql": "SELECT txid_current()",
+            "outcome": "SELECT 1",
+            "ms": 1.31
+          },
+          {
+            "sql": "-- invariant invoices_keep_line_items (before)\nSELECT COUNT(*) FROM invoices AS i WHERE NOT EXISTS (SELECT 1 FROM invoice_items AS ii WHERE ii.invoice_no = i.invoice_no)",
+            "outcome": "SELECT 1",
+            "ms": 4.56
+          },
+          {
+            "sql": "-- invariant negative_qty_only_on_cancellations (before)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.quantity < 0 AND i.status <> 'cancelled'",
+            "outcome": "SELECT 1",
+            "ms": 1.11
+          },
+          {
+            "sql": "-- invariant negative_price_only_on_adjustments (before)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.unit_price < 0 AND i.status <> 'adjustment'",
+            "outcome": "SELECT 1",
+            "ms": 1.99
+          },
+          {
+            "sql": "-- invariant status_matches_invoice_prefix (before)\nSELECT COUNT(*) FROM invoices WHERE (invoice_no LIKE 'C%' AND status <> 'cancelled') OR (invoice_no LIKE 'A%' AND status <> 'adjustment')",
+            "outcome": "SELECT 1",
+            "ms": 0.82
+          },
+          {
+            "sql": "SAVEPOINT agent_write",
+            "outcome": "SAVEPOINT",
+            "ms": 0.41
+          },
+          {
+            "sql": "INSERT INTO products (stock_code, description) VALUES ('99999', 'TEST MUG') RETURNING *",
+            "outcome": "INSERT 0 1",
+            "ms": 0.81
+          },
+          {
+            "sql": "SET CONSTRAINTS ALL IMMEDIATE",
+            "outcome": "SET CONSTRAINTS",
+            "ms": 0.36
+          },
+          {
+            "sql": "-- invariant invoices_keep_line_items (after)\nSELECT COUNT(*) FROM invoices AS i WHERE NOT EXISTS (SELECT 1 FROM invoice_items AS ii WHERE ii.invoice_no = i.invoice_no)",
+            "outcome": "SELECT 1",
+            "ms": 0.67
+          },
+          {
+            "sql": "-- invariant negative_qty_only_on_cancellations (after)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.quantity < 0 AND i.status <> 'cancelled'",
+            "outcome": "SELECT 1",
+            "ms": 0.67
+          },
+          {
+            "sql": "-- invariant negative_price_only_on_adjustments (after)\nSELECT COUNT(*) FROM invoice_items AS ii JOIN invoices AS i ON i.invoice_no = ii.invoice_no WHERE ii.unit_price < 0 AND i.status <> 'adjustment'",
+            "outcome": "SELECT 1",
+            "ms": 0.6
+          },
+          {
+            "sql": "-- invariant status_matches_invoice_prefix (after)\nSELECT COUNT(*) FROM invoices WHERE (invoice_no LIKE 'C%' AND status <> 'cancelled') OR (invoice_no LIKE 'A%' AND status <> 'adjustment')",
+            "outcome": "SELECT 1",
+            "ms": 0.75
+          },
+          {
+            "sql": "RELEASE SAVEPOINT agent_write",
+            "outcome": "RELEASE",
+            "ms": 0.4
+          },
+          {
+            "sql": "COMMIT",
+            "outcome": "COMMIT",
+            "ms": 1.59
+          }
+        ],
+        "error": null,
+        "compensation_sql": [
+          "DELETE FROM products WHERE stock_code = '99999'"
+        ],
+        "dry_run": false,
+        "duration_ms": 52.32,
+        "audit_id": 9,
+        "audit_warning": null
+      }
+    },
+    {
+      "id": "W6-10",
+      "title": "Guardrail BLOCK: never reaches the database",
+      "expected": "blocked",
+      "actual": "blocked",
+      "attempts": 1,
+      "passed": true,
+      "answer": "Request blocked before execution: DDL is blocked; this week does not generate or execute DDL.",
+      "steps": [
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "New request. Session memory holds 9 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "generate_sql(attempt 1/3)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Plan blocked: DDL is blocked; this week does not generate or execute DDL."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The planner refused this request. I will not retry around a block; stopping."
+        },
+        {
+          "attempt": 1,
+          "kind": "answer",
+          "text": "Request blocked before execution: DDL is blocked; this week does not generate or execute DDL."
+        }
+      ],
+      "execution": null
+    },
+    {
+      "id": "W7-1",
+      "title": "ReAct: SQL error fed back -> corrected retry",
+      "expected": "success",
+      "actual": "success",
+      "attempts": 2,
+      "passed": true,
+      "answer": "Returned 1 row(s) after 2 attempt(s).",
+      "steps": [
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "New request. Session memory holds 10 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "generate_sql(attempt 1/3)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "READ plan (confidence 0.90): Invoices for customer 17850."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ ONLY transaction."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "failed: syntax_or_semantic: operator does not exist: character varying = integer. Transaction rolled back; the database is unchanged."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "SQLSTATE 42883 is a syntax_or_semantic error, which a corrected query can fix. I will feed the error back to the planner and retry."
+        },
+        {
+          "attempt": 2,
+          "kind": "action",
+          "text": "generate_sql(attempt 2/3, with execution feedback)"
+        },
+        {
+          "attempt": 2,
+          "kind": "observation",
+          "text": "READ plan (confidence 0.90): customer_id is VARCHAR, so the identifier is now a quoted string literal."
+        },
+        {
+          "attempt": 2,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 2,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 2,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ ONLY transaction."
+        },
+        {
+          "attempt": 2,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 2,
+          "kind": "observation",
+          "text": "read_only: Read returned 1 row(s) in a READ ONLY transaction (rolled back: nothing to commit)."
+        },
+        {
+          "attempt": 2,
+          "kind": "answer",
+          "text": "Returned 1 row(s) after 2 attempt(s)."
+        }
+      ],
+      "execution": {
+        "status": "read_only",
+        "action_type": "read",
+        "sql": "SELECT invoice_no, invoice_date, status FROM invoices WHERE customer_id = '17850' LIMIT 100",
+        "reason": "Read returned 1 row(s) in a READ ONLY transaction (rolled back: nothing to commit).",
+        "executed_sql": "SELECT invoice_no, invoice_date, status FROM invoices WHERE customer_id = '17850' LIMIT 100",
+        "columns": [
+          "invoice_no",
+          "invoice_date",
+          "status"
+        ],
+        "rows": [
+          [
+            "536365",
+            "2010-12-01T08:26:00",
+            "completed"
+          ]
+        ],
+        "row_count": 1,
+        "truncated": false,
+        "affected_rows": null,
+        "expected_rows": null,
+        "transaction_id": "vxid 3/3303",
+        "checks": [],
+        "tx_log": [
+          {
+            "sql": "BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY",
+            "outcome": "BEGIN",
+            "ms": 1.29
+          },
+          {
+            "sql": "SET LOCAL statement_timeout = 5000",
+            "outcome": "SET",
+            "ms": 0.77
+          },
+          {
+            "sql": "SET LOCAL lock_timeout = 2000",
+            "outcome": "SET",
+            "ms": 0.7
+          },
+          {
+            "sql": "SELECT virtualtransaction FROM pg_locks WHERE pid = pg_backend_pid() AND locktype = 'virtualxid' LIMIT 1",
+            "outcome": "SELECT 1",
+            "ms": 1.81
+          },
+          {
+            "sql": "SELECT invoice_no, invoice_date, status FROM invoices WHERE customer_id = '17850' LIMIT 100",
+            "outcome": "SELECT 1",
+            "ms": 2.1
+          },
+          {
+            "sql": "ROLLBACK",
+            "outcome": "ROLLBACK",
+            "ms": 1.53
+          }
+        ],
+        "error": null,
+        "compensation_sql": [],
+        "dry_run": false,
+        "duration_ms": 22.87,
+        "audit_id": 11,
+        "audit_warning": null
+      }
+    },
+    {
+      "id": "W7-2",
+      "title": "ReAct: empty result fed back -> corrected retry",
+      "expected": "success",
+      "actual": "success",
+      "attempts": 2,
+      "passed": true,
+      "answer": "Returned 3 row(s) after 2 attempt(s).",
+      "steps": [
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "New request. Session memory holds 11 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "generate_sql(attempt 1/3)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "READ plan (confidence 0.90): Products whose description contains 'heart'."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ ONLY transaction."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "read_only: Read returned 0 row(s) in a READ ONLY transaction (rolled back: nothing to commit)."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The query worked but returned 0 rows. A filter may be too strict, so I will feed this result back for one retry."
+        },
+        {
+          "attempt": 2,
+          "kind": "action",
+          "text": "generate_sql(attempt 2/3, with execution feedback)"
+        },
+        {
+          "attempt": 2,
+          "kind": "observation",
+          "text": "READ plan (confidence 0.90): Descriptions are upper case, so the search is now case-insensitive (ILIKE)."
+        },
+        {
+          "attempt": 2,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 2,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 2,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ ONLY transaction."
+        },
+        {
+          "attempt": 2,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 2,
+          "kind": "observation",
+          "text": "read_only: Read returned 3 row(s) in a READ ONLY transaction (rolled back: nothing to commit)."
+        },
+        {
+          "attempt": 2,
+          "kind": "answer",
+          "text": "Returned 3 row(s) after 2 attempt(s)."
+        }
+      ],
+      "execution": {
+        "status": "read_only",
+        "action_type": "read",
+        "sql": "SELECT stock_code, description FROM products WHERE description ILIKE '%heart%' LIMIT 100",
+        "reason": "Read returned 3 row(s) in a READ ONLY transaction (rolled back: nothing to commit).",
+        "executed_sql": "SELECT stock_code, description FROM products WHERE description ILIKE '%heart%' LIMIT 100",
+        "columns": [
+          "stock_code",
+          "description"
+        ],
+        "rows": [
+          [
+            "85123A",
+            "WHITE HANGING HEART T-LIGHT HOLDER"
+          ],
+          [
+            "84406B",
+            "CREAM CUPID HEARTS COAT HANGER"
+          ],
+          [
+            "84029E",
+            "RED WOOLLY HOTTIE WHITE HEART."
+          ]
+        ],
+        "row_count": 3,
+        "truncated": false,
+        "affected_rows": null,
+        "expected_rows": null,
+        "transaction_id": "vxid 3/3347",
+        "checks": [],
+        "tx_log": [
+          {
+            "sql": "BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY",
+            "outcome": "BEGIN",
+            "ms": 0.61
+          },
+          {
+            "sql": "SET LOCAL statement_timeout = 5000",
+            "outcome": "SET",
+            "ms": 0.75
+          },
+          {
+            "sql": "SET LOCAL lock_timeout = 2000",
+            "outcome": "SET",
+            "ms": 0.59
+          },
+          {
+            "sql": "SELECT virtualtransaction FROM pg_locks WHERE pid = pg_backend_pid() AND locktype = 'virtualxid' LIMIT 1",
+            "outcome": "SELECT 1",
+            "ms": 2.43
+          },
+          {
+            "sql": "SELECT stock_code, description FROM products WHERE description ILIKE '%heart%' LIMIT 100",
+            "outcome": "SELECT 3",
+            "ms": 1.37
+          },
+          {
+            "sql": "ROLLBACK",
+            "outcome": "ROLLBACK",
+            "ms": 0.76
+          }
+        ],
+        "error": null,
+        "compensation_sql": [],
+        "dry_run": false,
+        "duration_ms": 19.49,
+        "audit_id": 13,
+        "audit_warning": null
+      }
+    },
+    {
+      "id": "W7-3",
+      "title": "ReAct: bounded retries (budget exhausted)",
+      "expected": "failed",
+      "actual": "failed",
+      "attempts": 3,
+      "passed": true,
+      "answer": "Could not complete the request: invalid input syntax for type numeric: \"December\". A literal or expression has the wrong format or type for the column. Nothing was changed.",
+      "steps": [
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "New request. Session memory holds 12 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "generate_sql(attempt 1/3)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "READ plan (confidence 0.90): Invoices dated December 2010."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ ONLY transaction."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "failed: data_exception: invalid input syntax for type timestamp: \"2010-12\". Transaction rolled back; the database is unchanged."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "SQLSTATE 22007 is a data_exception error, which a corrected query can fix. I will feed the error back to the planner and retry."
+        },
+        {
+          "attempt": 2,
+          "kind": "action",
+          "text": "generate_sql(attempt 2/3, with execution feedback)"
+        },
+        {
+          "attempt": 2,
+          "kind": "observation",
+          "text": "READ plan (confidence 0.90): Match the December 2010 prefix."
+        },
+        {
+          "attempt": 2,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 2,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 2,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ ONLY transaction."
+        },
+        {
+          "attempt": 2,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 2,
+          "kind": "observation",
+          "text": "failed: syntax_or_semantic: operator does not exist: timestamp without time zone ~~ unknown. Transaction rolled back; the database is unchanged."
+        },
+        {
+          "attempt": 2,
+          "kind": "thought",
+          "text": "SQLSTATE 42883 is a syntax_or_semantic error, which a corrected query can fix. I will feed the error back to the planner and retry."
+        },
+        {
+          "attempt": 3,
+          "kind": "action",
+          "text": "generate_sql(attempt 3/3, with execution feedback)"
+        },
+        {
+          "attempt": 3,
+          "kind": "observation",
+          "text": "READ plan (confidence 0.90): Filter on the month name."
+        },
+        {
+          "attempt": 3,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 3,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 3,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ ONLY transaction."
+        },
+        {
+          "attempt": 3,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 3,
+          "kind": "observation",
+          "text": "failed: data_exception: invalid input syntax for type numeric: \"December\". Transaction rolled back; the database is unchanged."
+        },
+        {
+          "attempt": 3,
+          "kind": "thought",
+          "text": "Stopping: the retry budget is exhausted. The transaction was rolled back."
+        },
+        {
+          "attempt": 3,
+          "kind": "answer",
+          "text": "Could not complete the request: invalid input syntax for type numeric: \"December\". A literal or expression has the wrong format or type for the column. Nothing was changed."
+        }
+      ],
+      "execution": {
+        "status": "failed",
+        "action_type": "read",
+        "sql": "SELECT invoice_no, invoice_date FROM invoices WHERE EXTRACT(MONTH FROM invoice_date) = 'December' LIMIT 100",
+        "reason": "data_exception: invalid input syntax for type numeric: \"December\". Transaction rolled back; the database is unchanged.",
+        "executed_sql": "SELECT invoice_no, invoice_date FROM invoices WHERE EXTRACT(MONTH FROM invoice_date) = 'December' LIMIT 100",
+        "columns": [],
+        "rows": [],
+        "row_count": 0,
+        "truncated": false,
+        "affected_rows": null,
+        "expected_rows": null,
+        "transaction_id": "vxid 3/3411",
+        "checks": [],
+        "tx_log": [
+          {
+            "sql": "BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY",
+            "outcome": "BEGIN",
+            "ms": 0.76
+          },
+          {
+            "sql": "SET LOCAL statement_timeout = 5000",
+            "outcome": "SET",
+            "ms": 0.53
+          },
+          {
+            "sql": "SET LOCAL lock_timeout = 2000",
+            "outcome": "SET",
+            "ms": 0.42
+          },
+          {
+            "sql": "SELECT virtualtransaction FROM pg_locks WHERE pid = pg_backend_pid() AND locktype = 'virtualxid' LIMIT 1",
+            "outcome": "SELECT 1",
+            "ms": 1.8
+          },
+          {
+            "sql": "SELECT invoice_no, invoice_date FROM invoices WHERE EXTRACT(MONTH FROM invoice_date) = 'December' LIMIT 100",
+            "outcome": "ERROR 22P02",
+            "ms": 1.44
+          },
+          {
+            "sql": "ROLLBACK",
+            "outcome": "ROLLBACK",
+            "ms": 0.43
+          }
+        ],
+        "error": {
+          "sqlstate": "22P02",
+          "error_name": "InvalidTextRepresentation",
+          "category": "data_exception",
+          "message": "invalid input syntax for type numeric: \"December\"",
+          "detail": null,
+          "hint": null,
+          "constraint": null,
+          "table": null,
+          "column": null,
+          "retryable": true,
+          "explanation": "A literal or expression has the wrong format or type for the column."
+        },
+        "compensation_sql": [],
+        "dry_run": false,
+        "duration_ms": 29.88,
+        "audit_id": 16,
+        "audit_warning": null
+      }
+    },
+    {
+      "id": "W7-4",
+      "title": "Session memory across turns",
+      "expected": "success",
+      "actual": "success",
+      "attempts": 2,
+      "passed": true,
+      "answer": "Returned 2 row(s) after 1 attempt(s).",
+      "steps": [
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "New request. Session memory holds 13 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "generate_sql(attempt 1/3)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "READ plan (confidence 0.90): Line items of invoice 536365."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ ONLY transaction."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "read_only: Read returned 7 row(s) in a READ ONLY transaction (rolled back: nothing to commit)."
+        },
+        {
+          "attempt": 1,
+          "kind": "answer",
+          "text": "Returned 7 row(s) after 1 attempt(s)."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "New request. Session memory holds 14 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "generate_sql(attempt 1/3)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Intent parser resolved this as a follow-up of \"show line items for invoice 536365\" (session memory); inherited constraints: invoice_no = '536365', quantity > 6"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "READ plan (confidence 0.90): Same invoice as the previous turn (from session memory), restricted to quantity > 6."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "check_guardrails(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "Verdict ALLOW (risk 0): No Week 5 guardrail rule was triggered."
+        },
+        {
+          "attempt": 1,
+          "kind": "thought",
+          "text": "The plan is cleared. I will run it inside a READ ONLY transaction."
+        },
+        {
+          "attempt": 1,
+          "kind": "action",
+          "text": "execute_sandboxed(plan)"
+        },
+        {
+          "attempt": 1,
+          "kind": "observation",
+          "text": "read_only: Read returned 2 row(s) in a READ ONLY transaction (rolled back: nothing to commit)."
+        },
+        {
+          "attempt": 1,
+          "kind": "answer",
+          "text": "Returned 2 row(s) after 1 attempt(s)."
+        }
+      ],
+      "execution": {
+        "status": "read_only",
+        "action_type": "read",
+        "sql": "SELECT stock_code, quantity, unit_price FROM invoice_items WHERE invoice_no = '536365' AND quantity > 6 LIMIT 100",
+        "reason": "Read returned 2 row(s) in a READ ONLY transaction (rolled back: nothing to commit).",
+        "executed_sql": "SELECT stock_code, quantity, unit_price FROM invoice_items WHERE invoice_no = '536365' AND quantity > 6 LIMIT 100",
+        "columns": [
+          "stock_code",
+          "quantity",
+          "unit_price"
+        ],
+        "rows": [
+          [
+            "85123A",
+            12,
+            2.55
+          ],
+          [
+            "84406B",
+            8,
+            2.75
+          ]
+        ],
+        "row_count": 2,
+        "truncated": false,
+        "affected_rows": null,
+        "expected_rows": null,
+        "transaction_id": "vxid 3/3463",
+        "checks": [],
+        "tx_log": [
+          {
+            "sql": "BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY",
+            "outcome": "BEGIN",
+            "ms": 0.84
+          },
+          {
+            "sql": "SET LOCAL statement_timeout = 5000",
+            "outcome": "SET",
+            "ms": 0.7
+          },
+          {
+            "sql": "SET LOCAL lock_timeout = 2000",
+            "outcome": "SET",
+            "ms": 0.8
+          },
+          {
+            "sql": "SELECT virtualtransaction FROM pg_locks WHERE pid = pg_backend_pid() AND locktype = 'virtualxid' LIMIT 1",
+            "outcome": "SELECT 1",
+            "ms": 1.7
+          },
+          {
+            "sql": "SELECT stock_code, quantity, unit_price FROM invoice_items WHERE invoice_no = '536365' AND quantity > 6 LIMIT 100",
+            "outcome": "SELECT 2",
+            "ms": 2.85
+          },
+          {
+            "sql": "ROLLBACK",
+            "outcome": "ROLLBACK",
+            "ms": 0.92
+          }
+        ],
+        "error": null,
+        "compensation_sql": [],
+        "dry_run": false,
+        "duration_ms": 20.15,
+        "audit_id": 18,
+        "audit_warning": null
+      }
+    }
+  ]
+}

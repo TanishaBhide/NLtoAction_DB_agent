@@ -11,6 +11,8 @@ The project is split into an operational database and an agent-system database.
 - Week 3: added a standard-library-only intent parser with session memory, DDL detection, structured constraints, and simple aggregation support.
 - Week 4: added LLM-backed SQL/action planning, static SQL validation, and offline evaluation. Generated SQL is not executed.
 - Week 5: added fail-closed SQL guardrails, sensitivity checks, row-count thresholds, approval persistence, and an explainable risk classifier. Generated SQL is still not executed.
+- Week 6: added a safe execution engine: sandboxed BEGIN/COMMIT/ROLLBACK, pre-commit row and constraint checks, structured capture of execution errors, execution audit and undo (compensation) SQL.
+- Week 7: added an end-to-end ReAct agent (reason -> act -> observe) that feeds SQL errors and results back to the planner for bounded retries, with persistent session memory.
 
 ## Repository layout
 
@@ -34,6 +36,14 @@ The project is split into an operational database and an agent-system database.
 - `database/guardrail_dataset.csv` - 240 balanced template-derived classifier examples.
 - `database/risk_classifier.py` - logistic-regression training and prediction.
 - `database/eval_week5.py` - Week 5 safety and classifier evaluation.
+- `database/executor.py` - Week 6 safe execution engine (sandboxed transactions, pre-commit checks, error capture, audit).
+- `database/react_agent.py` - Week 7 ReAct agent loop and CLI/REPL.
+- `database/session_memory.py` - Week 7 session memory (in-process + `agent_sessions`/`session_events`).
+- `database/display.py` - terminal rendering of the ReAct trace, transaction log, checks and results.
+- `database/demo_week6_7.py` - end-to-end demo of all Week 6/7 scenarios with a final verification.
+- `database/demo_llm.py`, `database/demo_scenarios.json` - offline scripted planner for the demo scenarios.
+- `database/setup_demo_db.py` - creates or resets the full demo database without `psql`.
+- `database/agent_schema_week6_7.sql` - additive Week 6/7 audit migration.
 - `database/queries.sql` - example relational-algebra-style SQL queries.
 - `tests/` - parser, retrieval, SQL generation, and validation tests.
 
@@ -172,13 +182,52 @@ The rule engine never executes generated SQL. An `ALLOW` is only a decision for
 the later execution stage, not execution itself. See
 [`docs/confirmation_rules.md`](./docs/confirmation_rules.md) for verdict behavior.
 
+## Weeks 6-7: execute safely, end to end
+
+Details: [`docs/week6_7_notes.md`](./docs/week6_7_notes.md).
+
+### Quick demo (Windows, Docker Desktop running)
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\demo_week6_7.ps1            # run all 14 scenarios
+powershell -ExecutionPolicy Bypass -File scripts\demo_week6_7.ps1 -Pause     # one scenario at a time
+powershell -ExecutionPolicy Bypass -File scripts\demo_week6_7.ps1 -Interactive  # type your own requests
+```
+
+The script starts a PostgreSQL 16 container (`nl2action-pg`, port 55432), creates `.venv`, loads the
+schema and sample data, and runs the demo. The demo shows, for every scenario, the
+Thought/Action/Observation trace, each statement of the sandboxed transaction, the
+pre-commit checks, captured errors and result rows. It ends with a pass/fail table, the
+database state proving rolled-back writes changed nothing, and the `execution_audit`,
+`compensation_ledger` and `session_events` rows written. A transcript and JSON report are saved in `results/`.
+
+### Manual commands
+
+```powershell
+$env:DATABASE_URL = "postgresql://agent:agent@localhost:55432/online_retail_db"
+python database/setup_demo_db.py                       # reset schema + sample data
+python database/demo_week6_7.py                        # all scenarios (offline scripted planner)
+python database/demo_week6_7.py --only W6-7,W7-1       # selected scenarios
+python database/react_agent.py -i                      # interactive agent (asks before COMMIT)
+python database/react_agent.py "show customers from France"
+python database/react_agent.py --dry-run "set the quantity of stock code 85123A on invoice 536365 to 12"
+```
+
+Without `GROQ_API_KEY` the agent uses the scripted offline planner, which only knows the
+demo requests in `database/demo_scenarios.json`. Set `GROQ_API_KEY` to ask anything; everything
+after planning (validation, guardrails, sandboxed execution) is identical in both modes.
+In the REPL, `history` prints the session memory and `--session-id <id>` resumes a session.
+
 ## Run tests
 
 ```bash
 pytest
 ```
 
-## Week 1-5 status
+The Week 6 integration tests run against `DATABASE_URL` (or the Docker demo database) and
+are skipped automatically when PostgreSQL is not reachable.
+
+## Week 1-7 status
 
 | Week | Status | Main output |
 | --- | --- | --- |
@@ -187,6 +236,8 @@ pytest
 | Week 3 | Complete | Intent parser, session memory, structured constraints, DDL detection |
 | Week 4 | Complete | LLM action-plan generation, SQL validation, offline representative-query evaluation |
 | Week 5 | Complete | SQL guardrails, row-limit and sensitivity rules, approval persistence, risk classifier and evaluation |
+| Week 6 | Complete | Safe execution engine: sandboxed BEGIN/COMMIT/ROLLBACK, pre-commit row/constraint/invariant checks, structured error capture, audit and undo SQL |
+| Week 7 | Complete | ReAct reason-act-observe loop, error/result feedback with bounded retries, persistent session memory, end-to-end demo |
 
 ## Notes
 

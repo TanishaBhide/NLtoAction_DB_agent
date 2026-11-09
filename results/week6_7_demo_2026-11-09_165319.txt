@@ -1,0 +1,890 @@
+  · resetting demo database to the Week 1 sample data ...
+━━ NL-to-Action agent · Weeks 6-7 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  session : demo-9964e28c2572  (0 earlier turn(s) in memory)
+  planner : scripted demo LLM (offline)
+  loop    : Thought -> Action -> Observation, bounded retries, sandboxed transactions
+
+━━ [1/14] W6-1 · Read inside a READ ONLY sandbox ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  demonstrates: Reads run in BEGIN ... READ ONLY with statement/lock timeouts and are always rolled back.
+
+  USER ▶ show customers from France
+  Thought     New request. No earlier turns in this session. First I need a validated SQL plan.
+  Action      generate_sql(attempt 1/3)
+  Observation READ plan (confidence 0.90): Customers whose country is France.
+              SQL       SELECT customer_id, country FROM customers WHERE country = 'France' LIMIT 100
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ ONLY transaction.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 6 statements · 4.7 ms · txid vxid 3/3025
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY                         BEGIN               0.5 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.3 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.2 ms
+              │ SELECT virtualtransaction FROM pg_locks WHERE pid = pg_backend_pid(... SELECT 1            1.3 ms
+              │ SELECT customer_id, country FROM customers WHERE country = 'France'... SELECT 1            1.8 ms
+              │ ROLLBACK                                                               ROLLBACK            0.5 ms
+              └─
+              result rows:
+                customer_id │ country
+                ────────────┼────────
+                12494       │ France 
+              status READ_ONLY · Read returned 1 row(s) in a READ ONLY transaction (rolled back: nothing to commit).  [audit #1]
+
+  ANSWER  SUCCESS  Returned 1 row(s) after 1 attempt(s).
+
+━━ [2/14] W6-2 · Committed write with pre-commit checks and undo SQL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  demonstrates: BEGIN -> count snapshot -> invariants -> SAVEPOINT -> UPDATE -> checks -> COMMIT; compensation SQL stored.
+
+  USER ▶ set the quantity of stock code 85123A on invoice 536365 to 12
+  Thought     New request. Session memory holds 1 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan.
+              memory given to the planner:
+                Turn 1: "show customers from France" -> success, 1 row(s)
+                  SQL: SELECT customer_id, country FROM customers WHERE country = 'France' LIMIT 100
+                  first rows: [["12494", "France"]]
+  Action      generate_sql(attempt 1/3)
+  Observation WRITE plan (confidence 0.90): Set quantity to 12 for one line item.
+              SQL       UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' AND stock_code = '85123A'
+              count_sql SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '85123A'
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ WRITE transaction with pre-commit row and constraint checks.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 19 statements · 18.7 ms · txid 2106
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE                        BEGIN               0.7 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.5 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.4 ms
+              │ SELECT txid_current()                                                  SELECT 1            0.9 ms
+              │ SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND ... SELECT 1            3.2 ms
+              │ invariant invoices_keep_line_items (before)                            SELECT 1            2.2 ms
+              │ invariant negative_qty_only_on_cancellations (before)                  SELECT 1            1.4 ms
+              │ invariant negative_price_only_on_adjustments (before)                  SELECT 1            1.8 ms
+              │ invariant status_matches_invoice_prefix (before)                       SELECT 1            0.9 ms
+              │ before-image                                                           SELECT 1            0.7 ms
+              │ SAVEPOINT agent_write                                                  SAVEPOINT           0.4 ms
+              │ UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' ... UPDATE 1            0.9 ms
+              │ SET CONSTRAINTS ALL IMMEDIATE                                          SET CONSTRAINTS     0.4 ms
+              │ invariant invoices_keep_line_items (after)                             SELECT 1            0.6 ms
+              │ invariant negative_qty_only_on_cancellations (after)                   SELECT 1            0.6 ms
+              │ invariant negative_price_only_on_adjustments (after)                   SELECT 1            0.6 ms
+              │ invariant status_matches_invoice_prefix (after)                        SELECT 1            0.4 ms
+              │ RELEASE SAVEPOINT agent_write                                          RELEASE             0.3 ms
+              │ COMMIT                                                                 COMMIT              1.9 ms
+              └─
+              pre-commit checks:
+                ✓ deferred_constraints                         All deferrable constraints validated now.
+                ✓ rows_affected_nonzero                        1 row(s) affected
+                ✓ rows_match_estimate                          estimated 1 by count_sql, actually affected 1
+                ✓ row_limit                                    1 <= 100 (unapproved write limit)
+                ✓ invariant:invoices_keep_line_items           Every invoice keeps at least one line item. violations before=0 after=0
+                ✓ invariant:negative_qty_only_on_cancellations Negative quantities appear only on cancelled invoices. violations before=0 after=0
+                ✓ invariant:negative_price_only_on_adjustments Negative unit prices appear only on adjustment invoices. violations before=0 after=0
+                ✓ invariant:status_matches_invoice_prefix      Invoice status agrees with the C/A invoice-number prefix. violations before=0 after=0
+              affected rows (RETURNING *):
+                invoice_item_id │ invoice_no │ stock_code │ quantity │ unit_price
+                ────────────────┼────────────┼────────────┼──────────┼───────────
+                1               │ 536365     │ 85123A     │ 12       │ 2.55      
+              undo SQL (compensation_ledger):
+                UPDATE invoice_items SET quantity = 6 WHERE invoice_item_id = 1
+              status COMMITTED · All pre-commit checks passed; committed.  [audit #2]
+
+  ANSWER  SUCCESS  UPDATE committed: 1 row(s) changed in transaction 2106. All 8 pre-commit checks passed. Undo SQL was stored in compensation_ledger.
+
+━━ [3/14] W6-3 · Dry run: write executed, then rolled back ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  demonstrates: The sandbox executes the write and runs every check, then discards it (--dry-run).
+  · this scenario runs with --dry-run
+
+  USER ▶ set the quantity of stock code 84029G on invoice 536365 to 10
+  Thought     New request. Session memory holds 2 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan.
+              memory given to the planner:
+                Turn 1: "show customers from France" -> success, 1 row(s)
+                  SQL: SELECT customer_id, country FROM customers WHERE country = 'France' LIMIT 100
+                  first rows: [["12494", "France"]]
+                Turn 2: "set the quantity of stock code 85123A on invoice 536365 to 12" -> success, 1 row(s) changed
+                  SQL: UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' AND stock_code = '85123A'
+  Action      generate_sql(attempt 1/3)
+  Observation WRITE plan (confidence 0.90): Set quantity to 10 for one line item.
+              SQL       UPDATE invoice_items SET quantity = 10 WHERE invoice_no = '536365' AND stock_code = '84029G'
+              count_sql SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '84029G'
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ WRITE transaction with pre-commit row and constraint checks.
+  Action      execute_sandboxed(plan) [dry run]
+  Observation
+              ┌─ sandboxed transaction · 19 statements · 18.9 ms · txid 2119
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE                        BEGIN               0.5 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.4 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.4 ms
+              │ SELECT txid_current()                                                  SELECT 1            0.6 ms
+              │ SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND ... SELECT 1            2.5 ms
+              │ invariant invoices_keep_line_items (before)                            SELECT 1            1.9 ms
+              │ invariant negative_qty_only_on_cancellations (before)                  SELECT 1            0.8 ms
+              │ invariant negative_price_only_on_adjustments (before)                  SELECT 1            1.0 ms
+              │ invariant status_matches_invoice_prefix (before)                       SELECT 1            0.7 ms
+              │ before-image                                                           SELECT 1            0.7 ms
+              │ SAVEPOINT agent_write                                                  SAVEPOINT           0.3 ms
+              │ UPDATE invoice_items SET quantity = 10 WHERE invoice_no = '536365' ... UPDATE 1            4.2 ms
+              │ SET CONSTRAINTS ALL IMMEDIATE                                          SET CONSTRAINTS     0.3 ms
+              │ invariant invoices_keep_line_items (after)                             SELECT 1            0.7 ms
+              │ invariant negative_qty_only_on_cancellations (after)                   SELECT 1            0.7 ms
+              │ invariant negative_price_only_on_adjustments (after)                   SELECT 1            0.7 ms
+              │ invariant status_matches_invoice_prefix (after)                        SELECT 1            0.8 ms
+              │ RELEASE SAVEPOINT agent_write                                          RELEASE             0.8 ms
+              │ ROLLBACK                                                               ROLLBACK            0.9 ms
+              └─
+              pre-commit checks:
+                ✓ deferred_constraints                         All deferrable constraints validated now.
+                ✓ rows_affected_nonzero                        1 row(s) affected
+                ✓ rows_match_estimate                          estimated 1 by count_sql, actually affected 1
+                ✓ row_limit                                    1 <= 100 (unapproved write limit)
+                ✓ invariant:invoices_keep_line_items           Every invoice keeps at least one line item. violations before=0 after=0
+                ✓ invariant:negative_qty_only_on_cancellations Negative quantities appear only on cancelled invoices. violations before=0 after=0
+                ✓ invariant:negative_price_only_on_adjustments Negative unit prices appear only on adjustment invoices. violations before=0 after=0
+                ✓ invariant:status_matches_invoice_prefix      Invoice status agrees with the C/A invoice-number prefix. violations before=0 after=0
+              affected rows (RETURNING *):
+                invoice_item_id │ invoice_no │ stock_code │ quantity │ unit_price
+                ────────────────┼────────────┼────────────┼──────────┼───────────
+                4               │ 536365     │ 84029G     │ 10       │ 3.39      
+              status ROLLED_BACK · Dry run: every check passed, changes discarded.  [audit #3]
+
+  ANSWER  ROLLED_BACK  Rolled back, nothing changed: Dry run: every check passed, changes discarded.
+
+━━ [4/14] W6-4 · CHECK constraint violation captured ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  demonstrates: SQLSTATE 23514 is captured with the constraint name; ROLLBACK; not retried (integrity error).
+
+  USER ▶ set the quantity of stock code 71053 on invoice 536365 to 0
+  Thought     New request. Session memory holds 3 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan.
+              memory given to the planner:
+                Turn 1: "show customers from France" -> success, 1 row(s)
+                  SQL: SELECT customer_id, country FROM customers WHERE country = 'France' LIMIT 100
+                  first rows: [["12494", "France"]]
+                Turn 2: "set the quantity of stock code 85123A on invoice 536365 to 12" -> success, 1 row(s) changed
+                  SQL: UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' AND stock_code = '85123A'
+                Turn 3: "set the quantity of stock code 84029G on invoice 536365 to 10" -> rolled_back, 1 row(s) changed
+                  SQL: UPDATE invoice_items SET quantity = 10 WHERE invoice_no = '536365' AND stock_code = '84029G'
+  Action      generate_sql(attempt 1/3)
+  Observation WRITE plan (confidence 0.90): Set quantity to 0 for one line item.
+              SQL       UPDATE invoice_items SET quantity = 0 WHERE invoice_no = '536365' AND stock_code = '71053'
+              count_sql SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '71053'
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ WRITE transaction with pre-commit row and constraint checks.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 13 statements · 13.6 ms · txid 2132
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE                        BEGIN               0.6 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.5 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.4 ms
+              │ SELECT txid_current()                                                  SELECT 1            0.9 ms
+              │ SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND ... SELECT 1            3.9 ms
+              │ invariant invoices_keep_line_items (before)                            SELECT 1            1.8 ms
+              │ invariant negative_qty_only_on_cancellations (before)                  SELECT 1            0.8 ms
+              │ invariant negative_price_only_on_adjustments (before)                  SELECT 1            1.2 ms
+              │ invariant status_matches_invoice_prefix (before)                       SELECT 1            0.8 ms
+              │ before-image                                                           SELECT 1            0.8 ms
+              │ SAVEPOINT agent_write                                                  SAVEPOINT           0.4 ms
+              │ UPDATE invoice_items SET quantity = 0 WHERE invoice_no = '536365' A... ERROR 23514         1.0 ms
+              │ ROLLBACK                                                               ROLLBACK            0.5 ms
+              └─
+              captured error ▸ SQLSTATE 23514 · CheckViolation · integrity_violation · retryable: no
+                message   : new row for relation "invoice_items" violates check constraint "chk_invoice_items_quantity"
+                detail    : Failing row contains (2, 536365, 71053, 0, 3.39).
+                constraint: chk_invoice_items_quantity
+                table     : invoice_items
+              status FAILED · integrity_violation: new row for relation "invoice_items" violates check constraint "chk_invoice_items_quantity". Transaction rolled back; the database is unchanged.  [audit #4]
+  Thought     Stopping: a integrity_violation error means the request itself breaks a rule. The transaction was rolled back.
+
+  ANSWER  FAILED  Could not complete the request: new row for relation "invoice_items" violates check constraint "chk_invoice_items_quantity". The change would break a database constraint; the request itself is invalid. Nothing was changed.
+
+━━ [5/14] W6-5 · Trigger (business rule) rejection captured ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  demonstrates: The unit-price trigger raises P0001; the error is captured and the transaction rolled back.
+
+  USER ▶ set the unit price of stock code 22752 on invoice 536365 to -5
+  Thought     New request. Session memory holds 4 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan.
+              memory given to the planner:
+                Turn 2: "set the quantity of stock code 85123A on invoice 536365 to 12" -> success, 1 row(s) changed
+                  SQL: UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' AND stock_code = '85123A'
+                Turn 3: "set the quantity of stock code 84029G on invoice 536365 to 10" -> rolled_back, 1 row(s) changed
+                  SQL: UPDATE invoice_items SET quantity = 10 WHERE invoice_no = '536365' AND stock_code = '84029G'
+                Turn 4: "set the quantity of stock code 71053 on invoice 536365 to 0" -> failed, error: new row for relation "invoice_items" violates check constraint "chk_invoice_items_quantity"
+                  SQL: UPDATE invoice_items SET quantity = 0 WHERE invoice_no = '536365' AND stock_code = '71053'
+  Action      generate_sql(attempt 1/3)
+  Observation WRITE plan (confidence 0.90): Set unit price to -5 for one line item.
+              SQL       UPDATE invoice_items SET unit_price = -5 WHERE invoice_no = '536365' AND stock_code = '22752'
+              count_sql SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '22752'
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ WRITE transaction with pre-commit row and constraint checks.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 13 statements · 15.2 ms · txid 2146
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE                        BEGIN               0.7 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.6 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.5 ms
+              │ SELECT txid_current()                                                  SELECT 1            0.8 ms
+              │ SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND ... SELECT 1            3.8 ms
+              │ invariant invoices_keep_line_items (before)                            SELECT 1            2.1 ms
+              │ invariant negative_qty_only_on_cancellations (before)                  SELECT 1            0.9 ms
+              │ invariant negative_price_only_on_adjustments (before)                  SELECT 1            1.7 ms
+              │ invariant status_matches_invoice_prefix (before)                       SELECT 1            0.7 ms
+              │ before-image                                                           SELECT 1            0.7 ms
+              │ SAVEPOINT agent_write                                                  SAVEPOINT           0.3 ms
+              │ UPDATE invoice_items SET unit_price = -5 WHERE invoice_no = '536365... ERROR P0001         1.9 ms
+              │ ROLLBACK                                                               ROLLBACK            0.5 ms
+              └─
+              captured error ▸ SQLSTATE P0001 · RaiseException · business_rule_trigger · retryable: no
+                message   : negative unit_price is only allowed for adjustment invoices
+              status FAILED · business_rule_trigger: negative unit_price is only allowed for adjustment invoices. Transaction rolled back; the database is unchanged.  [audit #5]
+  Thought     Stopping: a business_rule_trigger error means the request itself breaks a rule. The transaction was rolled back.
+
+  ANSWER  FAILED  Could not complete the request: negative unit_price is only allowed for adjustment invoices. A database trigger rejected the change as a business-rule violation. Nothing was changed.
+
+━━ [6/14] W6-6 · Foreign-key violation captured ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  demonstrates: Deleting a product still referenced by line items hits ON DELETE RESTRICT (23503).
+
+  USER ▶ delete the product with stock code 84406B
+  Thought     New request. Session memory holds 5 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan.
+              memory given to the planner:
+                Turn 3: "set the quantity of stock code 84029G on invoice 536365 to 10" -> rolled_back, 1 row(s) changed
+                  SQL: UPDATE invoice_items SET quantity = 10 WHERE invoice_no = '536365' AND stock_code = '84029G'
+                Turn 4: "set the quantity of stock code 71053 on invoice 536365 to 0" -> failed, error: new row for relation "invoice_items" violates check constraint "chk_invoice_items_quantity"
+                  SQL: UPDATE invoice_items SET quantity = 0 WHERE invoice_no = '536365' AND stock_code = '71053'
+                Turn 5: "set the unit price of stock code 22752 on invoice 536365 to -5" -> failed, error: negative unit_price is only allowed for adjustment invoices
+                  SQL: UPDATE invoice_items SET unit_price = -5 WHERE invoice_no = '536365' AND stock_code = '22752'
+  Action      generate_sql(attempt 1/3)
+  Observation WRITE plan (confidence 0.90): Delete one product by stock code.
+              SQL       DELETE FROM products WHERE stock_code = '84406B'
+              count_sql SELECT COUNT(*) FROM products WHERE stock_code = '84406B'
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ WRITE transaction with pre-commit row and constraint checks.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 13 statements · 12.5 ms · txid 2160
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE                        BEGIN               0.5 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.4 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.3 ms
+              │ SELECT txid_current()                                                  SELECT 1            0.5 ms
+              │ SELECT COUNT(*) FROM products WHERE stock_code = '84406B'              SELECT 1            2.3 ms
+              │ invariant invoices_keep_line_items (before)                            SELECT 1            2.0 ms
+              │ invariant negative_qty_only_on_cancellations (before)                  SELECT 1            0.8 ms
+              │ invariant negative_price_only_on_adjustments (before)                  SELECT 1            1.1 ms
+              │ invariant status_matches_invoice_prefix (before)                       SELECT 1            1.2 ms
+              │ before-image                                                           SELECT 1            0.9 ms
+              │ SAVEPOINT agent_write                                                  SAVEPOINT           0.4 ms
+              │ DELETE FROM products WHERE stock_code = '84406B' RETURNING *           ERROR 23503         1.6 ms
+              │ ROLLBACK                                                               ROLLBACK            0.5 ms
+              └─
+              captured error ▸ SQLSTATE 23503 · ForeignKeyViolation · integrity_violation · retryable: no
+                message   : update or delete on table "products" violates foreign key constraint "fk_invoice_items_product" on table "invoice_items"
+                detail    : Key (stock_code)=(84406B) is still referenced from table "invoice_items".
+                constraint: fk_invoice_items_product
+                table     : invoice_items
+              status FAILED · integrity_violation: update or delete on table "products" violates foreign key constraint "fk_invoice_items_product" on table "invoice_items". Transaction rolled back; the database is unchanged.  [audit #6]
+  Thought     Stopping: a integrity_violation error means the request itself breaks a rule. The transaction was rolled back.
+
+  ANSWER  FAILED  Could not complete the request: update or delete on table "products" violates foreign key constraint "fk_invoice_items_product" on table "invoice_items". The change would break a database constraint; the request itself is invalid. Nothing was changed.
+
+━━ [7/14] W6-7 · Pre-commit invariant check rolls back a valid-looking write ━━━━━━━━━━━━━━━━━━━━━━━
+  demonstrates: PostgreSQL accepts quantity -3, but the invariant 'negative quantities only on cancellations' rises 0 -> 1, so ROLLBACK.
+
+  USER ▶ set the quantity of stock code 21730 on invoice 536365 to -3
+  Thought     New request. Session memory holds 6 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan.
+              memory given to the planner:
+                Turn 4: "set the quantity of stock code 71053 on invoice 536365 to 0" -> failed, error: new row for relation "invoice_items" violates check constraint "chk_invoice_items_quantity"
+                  SQL: UPDATE invoice_items SET quantity = 0 WHERE invoice_no = '536365' AND stock_code = '71053'
+                Turn 5: "set the unit price of stock code 22752 on invoice 536365 to -5" -> failed, error: negative unit_price is only allowed for adjustment invoices
+                  SQL: UPDATE invoice_items SET unit_price = -5 WHERE invoice_no = '536365' AND stock_code = '22752'
+                Turn 6: "delete the product with stock code 84406B" -> failed, error: update or delete on table "products" violates foreign key constraint "fk_invoice_items_product" on table "invoice_items"
+                  SQL: DELETE FROM products WHERE stock_code = '84406B'
+  Action      generate_sql(attempt 1/3)
+  Observation WRITE plan (confidence 0.90): Set quantity to -3 for one line item.
+              SQL       UPDATE invoice_items SET quantity = -3 WHERE invoice_no = '536365' AND stock_code = '21730'
+              count_sql SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '21730'
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ WRITE transaction with pre-commit row and constraint checks.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 18 statements · 13.8 ms · txid 2174
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE                        BEGIN               0.4 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.3 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.3 ms
+              │ SELECT txid_current()                                                  SELECT 1            0.9 ms
+              │ SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND ... SELECT 1            2.5 ms
+              │ invariant invoices_keep_line_items (before)                            SELECT 1            1.5 ms
+              │ invariant negative_qty_only_on_cancellations (before)                  SELECT 1            0.7 ms
+              │ invariant negative_price_only_on_adjustments (before)                  SELECT 1            1.3 ms
+              │ invariant status_matches_invoice_prefix (before)                       SELECT 1            0.9 ms
+              │ before-image                                                           SELECT 1            0.7 ms
+              │ SAVEPOINT agent_write                                                  SAVEPOINT           0.5 ms
+              │ UPDATE invoice_items SET quantity = -3 WHERE invoice_no = '536365' ... UPDATE 1            0.8 ms
+              │ SET CONSTRAINTS ALL IMMEDIATE                                          SET CONSTRAINTS     0.7 ms
+              │ invariant invoices_keep_line_items (after)                             SELECT 1            0.7 ms
+              │ invariant negative_qty_only_on_cancellations (after)                   SELECT 1            0.5 ms
+              │ invariant negative_price_only_on_adjustments (after)                   SELECT 1            0.5 ms
+              │ invariant status_matches_invoice_prefix (after)                        SELECT 1            0.3 ms
+              │ ROLLBACK                                                               ROLLBACK            0.3 ms
+              └─
+              pre-commit checks:
+                ✓ deferred_constraints                         All deferrable constraints validated now.
+                ✓ rows_affected_nonzero                        1 row(s) affected
+                ✓ rows_match_estimate                          estimated 1 by count_sql, actually affected 1
+                ✓ row_limit                                    1 <= 100 (unapproved write limit)
+                ✓ invariant:invoices_keep_line_items           Every invoice keeps at least one line item. violations before=0 after=0
+                ✗ invariant:negative_qty_only_on_cancellations Negative quantities appear only on cancelled invoices. violations before=0 after=1
+                ✓ invariant:negative_price_only_on_adjustments Negative unit prices appear only on adjustment invoices. violations before=0 after=0
+                ✓ invariant:status_matches_invoice_prefix      Invoice status agrees with the C/A invoice-number prefix. violations before=0 after=0
+              affected rows (RETURNING *):
+                invoice_item_id │ invoice_no │ stock_code │ quantity │ unit_price
+                ────────────────┼────────────┼────────────┼──────────┼───────────
+                7               │ 536365     │ 21730      │ -3       │ 4.25      
+              status ROLLED_BACK · Pre-commit check(s) failed: invariant:negative_qty_only_on_cancellations. Transaction rolled back; the database is unchanged.  [audit #7]
+  Thought     The SQL ran, but a pre-commit check failed, so it was rolled back. The plan does what was asked; the request breaks a data rule. Not retrying.
+
+  ANSWER  ROLLED_BACK  Rolled back. Pre-commit check failed: invariant:negative_qty_only_on_cancellations (Negative quantities appear only on cancelled invoices. violations before=0 after=1)
+
+━━ [8/14] W6-8 · Pre-commit check: an invoice would lose all its line items ━━━━━━━━━━━━━━━━━━━━━━━━
+  demonstrates: The DELETE succeeds in PostgreSQL but leaves invoice 536414 empty; the invariant check rolls it back.
+
+  USER ▶ delete the line items of invoice 536414
+  Thought     New request. Session memory holds 7 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan.
+              memory given to the planner:
+                Turn 5: "set the unit price of stock code 22752 on invoice 536365 to -5" -> failed, error: negative unit_price is only allowed for adjustment invoices
+                  SQL: UPDATE invoice_items SET unit_price = -5 WHERE invoice_no = '536365' AND stock_code = '22752'
+                Turn 6: "delete the product with stock code 84406B" -> failed, error: update or delete on table "products" violates foreign key constraint "fk_invoice_items_product" on table "invoice_items"
+                  SQL: DELETE FROM products WHERE stock_code = '84406B'
+                Turn 7: "set the quantity of stock code 21730 on invoice 536365 to -3" -> rolled_back, 1 row(s) changed
+                  SQL: UPDATE invoice_items SET quantity = -3 WHERE invoice_no = '536365' AND stock_code = '21730'
+  Action      generate_sql(attempt 1/3)
+  Observation WRITE plan (confidence 0.90): Delete the line items of one invoice.
+              SQL       DELETE FROM invoice_items WHERE invoice_no = '536414'
+              count_sql SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536414'
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ WRITE transaction with pre-commit row and constraint checks.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 18 statements · 12.2 ms · txid 2188
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE                        BEGIN               0.5 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.4 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.3 ms
+              │ SELECT txid_current()                                                  SELECT 1            0.9 ms
+              │ SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536414'         SELECT 1            2.4 ms
+              │ invariant invoices_keep_line_items (before)                            SELECT 1            1.3 ms
+              │ invariant negative_qty_only_on_cancellations (before)                  SELECT 1            0.8 ms
+              │ invariant negative_price_only_on_adjustments (before)                  SELECT 1            1.3 ms
+              │ invariant status_matches_invoice_prefix (before)                       SELECT 1            0.6 ms
+              │ before-image                                                           SELECT 1            0.5 ms
+              │ SAVEPOINT agent_write                                                  SAVEPOINT           0.2 ms
+              │ DELETE FROM invoice_items WHERE invoice_no = '536414' RETURNING *      DELETE 1            0.5 ms
+              │ SET CONSTRAINTS ALL IMMEDIATE                                          SET CONSTRAINTS     0.3 ms
+              │ invariant invoices_keep_line_items (after)                             SELECT 1            0.4 ms
+              │ invariant negative_qty_only_on_cancellations (after)                   SELECT 1            0.4 ms
+              │ invariant negative_price_only_on_adjustments (after)                   SELECT 1            0.6 ms
+              │ invariant status_matches_invoice_prefix (after)                        SELECT 1            0.3 ms
+              │ ROLLBACK                                                               ROLLBACK            0.3 ms
+              └─
+              pre-commit checks:
+                ✓ deferred_constraints                         All deferrable constraints validated now.
+                ✓ rows_affected_nonzero                        1 row(s) affected
+                ✓ rows_match_estimate                          estimated 1 by count_sql, actually affected 1
+                ✓ row_limit                                    1 <= 100 (unapproved write limit)
+                ✗ invariant:invoices_keep_line_items           Every invoice keeps at least one line item. violations before=0 after=1
+                ✓ invariant:negative_qty_only_on_cancellations Negative quantities appear only on cancelled invoices. violations before=0 after=0
+                ✓ invariant:negative_price_only_on_adjustments Negative unit prices appear only on adjustment invoices. violations before=0 after=0
+                ✓ invariant:status_matches_invoice_prefix      Invoice status agrees with the C/A invoice-number prefix. violations before=0 after=0
+              affected rows (RETURNING *):
+                invoice_item_id │ invoice_no │ stock_code │ quantity │ unit_price
+                ────────────────┼────────────┼────────────┼──────────┼───────────
+                11              │ 536414     │ 22139      │ 56       │ 0.00      
+              status ROLLED_BACK · Pre-commit check(s) failed: invariant:invoices_keep_line_items. Transaction rolled back; the database is unchanged.  [audit #8]
+  Thought     The SQL ran, but a pre-commit check failed, so it was rolled back. The plan does what was asked; the request breaks a data rule. Not retrying.
+
+  ANSWER  ROLLED_BACK  Rolled back. Pre-commit check failed: invariant:invoices_keep_line_items (Every invoice keeps at least one line item. violations before=0 after=1)
+
+━━ [9/14] W6-9 · Guardrail CONFIRM -> human approval -> commit ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  demonstrates: Week 5 returns CONFIRM; execution happens only after approval; the INSERT's undo is a DELETE.
+
+  USER ▶ add a new product with stock code 99999 and description TEST MUG
+  Thought     New request. Session memory holds 8 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan.
+              memory given to the planner:
+                Turn 6: "delete the product with stock code 84406B" -> failed, error: update or delete on table "products" violates foreign key constraint "fk_invoice_items_product" on table "invoice_items"
+                  SQL: DELETE FROM products WHERE stock_code = '84406B'
+                Turn 7: "set the quantity of stock code 21730 on invoice 536365 to -3" -> rolled_back, 1 row(s) changed
+                  SQL: UPDATE invoice_items SET quantity = -3 WHERE invoice_no = '536365' AND stock_code = '21730'
+                Turn 8: "delete the line items of invoice 536414" -> rolled_back, 1 row(s) changed
+                  SQL: DELETE FROM invoice_items WHERE invoice_no = '536414'
+  Action      generate_sql(attempt 1/3)
+  Observation WRITE plan (confidence 0.90): Insert one new product.
+              SQL       INSERT INTO products (stock_code, description) VALUES ('99999', 'TEST MUG')
+              count_sql SELECT COUNT(*) FROM products WHERE stock_code = '99999'
+  Action      check_guardrails(plan)
+  Observation verdict CONFIRM · risk 60
+              - Classifier confidence is below 0.60; escalated to confirmation.
+              - Risk classifier escalated the verdict to CONFIRM.
+  Thought     The verdict is CONFIRM, so a human must approve before execution.
+  Action      request_human_approval(plan)
+  · demo reviewer APPROVES this action
+  Observation Approved by the user.
+  Thought     The plan is cleared. I will run it inside a READ WRITE transaction with pre-commit row and constraint checks.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 17 statements · 17.7 ms · txid 2205
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ WRITE                        BEGIN               0.8 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.5 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.4 ms
+              │ SELECT txid_current()                                                  SELECT 1            1.3 ms
+              │ invariant invoices_keep_line_items (before)                            SELECT 1            4.6 ms
+              │ invariant negative_qty_only_on_cancellations (before)                  SELECT 1            1.1 ms
+              │ invariant negative_price_only_on_adjustments (before)                  SELECT 1            2.0 ms
+              │ invariant status_matches_invoice_prefix (before)                       SELECT 1            0.8 ms
+              │ SAVEPOINT agent_write                                                  SAVEPOINT           0.4 ms
+              │ INSERT INTO products (stock_code, description) VALUES ('99999', 'TE... INSERT 0 1          0.8 ms
+              │ SET CONSTRAINTS ALL IMMEDIATE                                          SET CONSTRAINTS     0.4 ms
+              │ invariant invoices_keep_line_items (after)                             SELECT 1            0.7 ms
+              │ invariant negative_qty_only_on_cancellations (after)                   SELECT 1            0.7 ms
+              │ invariant negative_price_only_on_adjustments (after)                   SELECT 1            0.6 ms
+              │ invariant status_matches_invoice_prefix (after)                        SELECT 1            0.8 ms
+              │ RELEASE SAVEPOINT agent_write                                          RELEASE             0.4 ms
+              │ COMMIT                                                                 COMMIT              1.6 ms
+              └─
+              pre-commit checks:
+                ✓ deferred_constraints                         All deferrable constraints validated now.
+                ✓ rows_affected_nonzero                        1 row(s) affected
+                ✓ rows_match_estimate                          estimated 1 by count_sql, actually affected 1
+                ✓ row_limit                                    1 <= 1000 (approved write limit)
+                ✓ invariant:invoices_keep_line_items           Every invoice keeps at least one line item. violations before=0 after=0
+                ✓ invariant:negative_qty_only_on_cancellations Negative quantities appear only on cancelled invoices. violations before=0 after=0
+                ✓ invariant:negative_price_only_on_adjustments Negative unit prices appear only on adjustment invoices. violations before=0 after=0
+                ✓ invariant:status_matches_invoice_prefix      Invoice status agrees with the C/A invoice-number prefix. violations before=0 after=0
+              affected rows (RETURNING *):
+                stock_code │ description
+                ───────────┼────────────
+                99999      │ TEST MUG   
+              undo SQL (compensation_ledger):
+                DELETE FROM products WHERE stock_code = '99999'
+              status COMMITTED · All pre-commit checks passed; committed.  [audit #9]
+
+  ANSWER  SUCCESS  INSERT committed: 1 row(s) changed in transaction 2205. All 8 pre-commit checks passed. Undo SQL was stored in compensation_ledger.
+
+━━ [10/14] W6-10 · Guardrail BLOCK: never reaches the database ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  demonstrates: DDL is blocked before planning; the executor gate would refuse it anyway.
+
+  USER ▶ drop the invoices table
+  Thought     New request. Session memory holds 9 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan.
+              memory given to the planner:
+                Turn 7: "set the quantity of stock code 21730 on invoice 536365 to -3" -> rolled_back, 1 row(s) changed
+                  SQL: UPDATE invoice_items SET quantity = -3 WHERE invoice_no = '536365' AND stock_code = '21730'
+                Turn 8: "delete the line items of invoice 536414" -> rolled_back, 1 row(s) changed
+                  SQL: DELETE FROM invoice_items WHERE invoice_no = '536414'
+                Turn 9: "add a new product with stock code 99999 and description TEST MUG" -> success, 1 row(s) changed
+                  SQL: INSERT INTO products (stock_code, description) VALUES ('99999', 'TEST MUG')
+  Action      generate_sql(attempt 1/3)
+  Observation Plan blocked: DDL is blocked; this week does not generate or execute DDL.
+  Thought     The planner refused this request. I will not retry around a block; stopping.
+
+  ANSWER  BLOCKED  Request blocked before execution: DDL is blocked; this week does not generate or execute DDL.
+
+━━ [11/14] W7-1 · ReAct: SQL error fed back -> corrected retry ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  demonstrates: Attempt 1 compares VARCHAR customer_id to an integer (42883). The error is observed, fed back, and attempt 2 succeeds.
+
+  USER ▶ show invoices for customer 17850
+  Thought     New request. Session memory holds 10 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan.
+              memory given to the planner:
+                Turn 8: "delete the line items of invoice 536414" -> rolled_back, 1 row(s) changed
+                  SQL: DELETE FROM invoice_items WHERE invoice_no = '536414'
+                Turn 9: "add a new product with stock code 99999 and description TEST MUG" -> success, 1 row(s) changed
+                  SQL: INSERT INTO products (stock_code, description) VALUES ('99999', 'TEST MUG')
+                Turn 10: "drop the invoices table" -> blocked
+  Action      generate_sql(attempt 1/3)
+  Observation READ plan (confidence 0.90): Invoices for customer 17850.
+              SQL       SELECT invoice_no, invoice_date, status FROM invoices WHERE customer_id = 17850 LIMIT 100
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ ONLY transaction.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 6 statements · 6.8 ms · txid vxid 3/3283
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY                         BEGIN               0.6 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.5 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.5 ms
+              │ SELECT virtualtransaction FROM pg_locks WHERE pid = pg_backend_pid(... SELECT 1            1.5 ms
+              │ SELECT invoice_no, invoice_date, status FROM invoices WHERE custome... ERROR 42883         3.0 ms
+              │ ROLLBACK                                                               ROLLBACK            0.6 ms
+              └─
+              captured error ▸ SQLSTATE 42883 · UndefinedFunction · syntax_or_semantic · retryable: yes
+                message   : operator does not exist: character varying = integer
+                hint      : No operator matches the given name and argument types. You might need to add explicit type casts.
+              status FAILED · syntax_or_semantic: operator does not exist: character varying = integer. Transaction rolled back; the database is unchanged.  [audit #10]
+  Thought     SQLSTATE 42883 is a syntax_or_semantic error, which a corrected query can fix. I will feed the error back to the planner and retry.
+  Action      generate_sql(attempt 2/3, with execution feedback)
+              feedback sent to the planner:
+                The previous SQL passed validation but FAILED when executed in a rolled-back sandbox.
+                Failed SQL: SELECT invoice_no, invoice_date, status FROM invoices WHERE customer_id = 17850 LIMIT 100
+                PostgreSQL error 42883 (UndefinedFunction): operator does not exist: character varying = integer
+  Observation READ plan (confidence 0.90): customer_id is VARCHAR, so the identifier is now a quoted string literal.
+              SQL       SELECT invoice_no, invoice_date, status FROM invoices WHERE customer_id = '17850' LIMIT 100
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ ONLY transaction.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 6 statements · 8.2 ms · txid vxid 3/3303
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY                         BEGIN               1.3 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.8 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.7 ms
+              │ SELECT virtualtransaction FROM pg_locks WHERE pid = pg_backend_pid(... SELECT 1            1.8 ms
+              │ SELECT invoice_no, invoice_date, status FROM invoices WHERE custome... SELECT 1            2.1 ms
+              │ ROLLBACK                                                               ROLLBACK            1.5 ms
+              └─
+              result rows:
+                invoice_no │ invoice_date        │ status   
+                ───────────┼─────────────────────┼──────────
+                536365     │ 2010-12-01 08:26:00 │ completed
+              status READ_ONLY · Read returned 1 row(s) in a READ ONLY transaction (rolled back: nothing to commit).  [audit #11]
+
+  ANSWER  SUCCESS  Returned 1 row(s) after 2 attempt(s).
+
+━━ [12/14] W7-2 · ReAct: empty result fed back -> corrected retry ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  demonstrates: Attempt 1 uses case-sensitive LIKE and returns 0 rows. The result is observed and fed back; attempt 2 uses ILIKE.
+
+  USER ▶ find products with heart in the description
+  Thought     New request. Session memory holds 11 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan.
+              memory given to the planner:
+                Turn 9: "add a new product with stock code 99999 and description TEST MUG" -> success, 1 row(s) changed
+                  SQL: INSERT INTO products (stock_code, description) VALUES ('99999', 'TEST MUG')
+                Turn 10: "drop the invoices table" -> blocked
+                Turn 11: "show invoices for customer 17850" -> success, 1 row(s)
+                  SQL: SELECT invoice_no, invoice_date, status FROM invoices WHERE customer_id = '17850' LIMIT 100
+                  first rows: [["536365", "2010-12-01 08:26:00", "completed"]]
+  Action      generate_sql(attempt 1/3)
+  Observation READ plan (confidence 0.90): Products whose description contains 'heart'.
+              SQL       SELECT stock_code, description FROM products WHERE description LIKE '%heart%' LIMIT 100
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ ONLY transaction.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 6 statements · 6.4 ms · txid vxid 3/3327
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY                         BEGIN               0.9 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.6 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.5 ms
+              │ SELECT virtualtransaction FROM pg_locks WHERE pid = pg_backend_pid(... SELECT 1            1.8 ms
+              │ SELECT stock_code, description FROM products WHERE description LIKE... SELECT 0            1.9 ms
+              │ ROLLBACK                                                               ROLLBACK            0.7 ms
+              └─
+              (0 rows)
+              status READ_ONLY · Read returned 0 row(s) in a READ ONLY transaction (rolled back: nothing to commit).  [audit #12]
+  Thought     The query worked but returned 0 rows. A filter may be too strict, so I will feed this result back for one retry.
+  Action      generate_sql(attempt 2/3, with execution feedback)
+              feedback sent to the planner:
+                The previous SQL executed successfully but returned 0 rows.
+                SQL: SELECT stock_code, description FROM products WHERE description LIKE '%heart%' LIMIT 100
+                Check whether a filter is too strict: text in this database is often upper case (prefer ILIKE for text search), identifiers are strings, and dates are TIMESTAMPs. If 0 rows is genuinely the right answer, return the same SQL.
+  Observation READ plan (confidence 0.90): Descriptions are upper case, so the search is now case-insensitive (ILIKE).
+              SQL       SELECT stock_code, description FROM products WHERE description ILIKE '%heart%' LIMIT 100
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ ONLY transaction.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 6 statements · 6.5 ms · txid vxid 3/3347
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY                         BEGIN               0.6 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.8 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.6 ms
+              │ SELECT virtualtransaction FROM pg_locks WHERE pid = pg_backend_pid(... SELECT 1            2.4 ms
+              │ SELECT stock_code, description FROM products WHERE description ILIK... SELECT 3            1.4 ms
+              │ ROLLBACK                                                               ROLLBACK            0.8 ms
+              └─
+              result rows:
+                stock_code │ description                       
+                ───────────┼───────────────────────────────────
+                85123A     │ WHITE HANGING HEART T-LIGHT HOLDER
+                84406B     │ CREAM CUPID HEARTS COAT HANGER    
+                84029E     │ RED WOOLLY HOTTIE WHITE HEART.    
+              status READ_ONLY · Read returned 3 row(s) in a READ ONLY transaction (rolled back: nothing to commit).  [audit #13]
+
+  ANSWER  SUCCESS  Returned 3 row(s) after 2 attempt(s).
+
+━━ [13/14] W7-3 · ReAct: bounded retries (budget exhausted) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  demonstrates: Three different date mistakes in a row; after the 3rd failed attempt the agent stops instead of looping.
+
+  USER ▶ show invoices from december 2010
+  Thought     New request. Session memory holds 12 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan.
+              memory given to the planner:
+                Turn 10: "drop the invoices table" -> blocked
+                Turn 11: "show invoices for customer 17850" -> success, 1 row(s)
+                  SQL: SELECT invoice_no, invoice_date, status FROM invoices WHERE customer_id = '17850' LIMIT 100
+                  first rows: [["536365", "2010-12-01 08:26:00", "completed"]]
+                Turn 12: "find products with heart in the description" -> success, 3 row(s)
+                  SQL: SELECT stock_code, description FROM products WHERE description ILIKE '%heart%' LIMIT 100
+                  first rows: [["85123A", "WHITE HANGING HEART T-LIGHT HOLDER"], ["84406B", "CREAM CUPID HEARTS COAT HANGER"], ["84029E", "RED WOOLLY HOTTIE WHITE HEART."]]
+  Action      generate_sql(attempt 1/3)
+  Observation READ plan (confidence 0.90): Invoices dated December 2010.
+              SQL       SELECT invoice_no, invoice_date FROM invoices WHERE invoice_date = '2010-12' LIMIT 100
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ ONLY transaction.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 6 statements · 7.7 ms · txid vxid 3/3371
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY                         BEGIN               0.8 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.7 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.6 ms
+              │ SELECT virtualtransaction FROM pg_locks WHERE pid = pg_backend_pid(... SELECT 1            2.5 ms
+              │ SELECT invoice_no, invoice_date FROM invoices WHERE invoice_date = ... ERROR 22007         1.7 ms
+              │ ROLLBACK                                                               ROLLBACK            1.5 ms
+              └─
+              captured error ▸ SQLSTATE 22007 · InvalidDatetimeFormat · data_exception · retryable: yes
+                message   : invalid input syntax for type timestamp: "2010-12"
+              status FAILED · data_exception: invalid input syntax for type timestamp: "2010-12". Transaction rolled back; the database is unchanged.  [audit #14]
+  Thought     SQLSTATE 22007 is a data_exception error, which a corrected query can fix. I will feed the error back to the planner and retry.
+  Action      generate_sql(attempt 2/3, with execution feedback)
+              feedback sent to the planner:
+                The previous SQL passed validation but FAILED when executed in a rolled-back sandbox.
+                Failed SQL: SELECT invoice_no, invoice_date FROM invoices WHERE invoice_date = '2010-12' LIMIT 100
+                PostgreSQL error 22007 (InvalidDatetimeFormat): invalid input syntax for type timestamp: "2010-12"
+  Observation READ plan (confidence 0.90): Match the December 2010 prefix.
+              SQL       SELECT invoice_no, invoice_date FROM invoices WHERE invoice_date LIKE '2010-12%' LIMIT 100
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ ONLY transaction.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 6 statements · 5.7 ms · txid vxid 3/3391
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY                         BEGIN               0.9 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.6 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.5 ms
+              │ SELECT virtualtransaction FROM pg_locks WHERE pid = pg_backend_pid(... SELECT 1            1.8 ms
+              │ SELECT invoice_no, invoice_date FROM invoices WHERE invoice_date LI... ERROR 42883         1.4 ms
+              │ ROLLBACK                                                               ROLLBACK            0.5 ms
+              └─
+              captured error ▸ SQLSTATE 42883 · UndefinedFunction · syntax_or_semantic · retryable: yes
+                message   : operator does not exist: timestamp without time zone ~~ unknown
+                hint      : No operator matches the given name and argument types. You might need to add explicit type casts.
+              status FAILED · syntax_or_semantic: operator does not exist: timestamp without time zone ~~ unknown. Transaction rolled back; the database is unchanged.  [audit #15]
+  Thought     SQLSTATE 42883 is a syntax_or_semantic error, which a corrected query can fix. I will feed the error back to the planner and retry.
+  Action      generate_sql(attempt 3/3, with execution feedback)
+              feedback sent to the planner:
+                The previous SQL passed validation but FAILED when executed in a rolled-back sandbox.
+                Failed SQL: SELECT invoice_no, invoice_date FROM invoices WHERE invoice_date LIKE '2010-12%' LIMIT 100
+                PostgreSQL error 42883 (UndefinedFunction): operator does not exist: timestamp without time zone ~~ unknown
+  Observation READ plan (confidence 0.90): Filter on the month name.
+              SQL       SELECT invoice_no, invoice_date FROM invoices WHERE EXTRACT(MONTH FROM invoice_date) = 'December' LIMIT 100
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ ONLY transaction.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 6 statements · 5.4 ms · txid vxid 3/3411
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY                         BEGIN               0.8 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.5 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.4 ms
+              │ SELECT virtualtransaction FROM pg_locks WHERE pid = pg_backend_pid(... SELECT 1            1.8 ms
+              │ SELECT invoice_no, invoice_date FROM invoices WHERE EXTRACT(MONTH F... ERROR 22P02         1.4 ms
+              │ ROLLBACK                                                               ROLLBACK            0.4 ms
+              └─
+              captured error ▸ SQLSTATE 22P02 · InvalidTextRepresentation · data_exception · retryable: yes
+                message   : invalid input syntax for type numeric: "December"
+              status FAILED · data_exception: invalid input syntax for type numeric: "December". Transaction rolled back; the database is unchanged.  [audit #16]
+  Thought     Stopping: the retry budget is exhausted. The transaction was rolled back.
+
+  ANSWER  FAILED  Could not complete the request: invalid input syntax for type numeric: "December". A literal or expression has the wrong format or type for the column. Nothing was changed.
+
+━━ [14/14] W7-4 · Session memory across turns ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  demonstrates: Turn 2 is a follow-up ('only the ones with quantity above 6'). The parser resolves it from session state (inheriting invoice 536365) and the LLM receives the memory block of turn 1.
+
+  USER ▶ show line items for invoice 536365
+  Thought     New request. Session memory holds 13 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan.
+              memory given to the planner:
+                Turn 11: "show invoices for customer 17850" -> success, 1 row(s)
+                  SQL: SELECT invoice_no, invoice_date, status FROM invoices WHERE customer_id = '17850' LIMIT 100
+                  first rows: [["536365", "2010-12-01 08:26:00", "completed"]]
+                Turn 12: "find products with heart in the description" -> success, 3 row(s)
+                  SQL: SELECT stock_code, description FROM products WHERE description ILIKE '%heart%' LIMIT 100
+                  first rows: [["85123A", "WHITE HANGING HEART T-LIGHT HOLDER"], ["84406B", "CREAM CUPID HEARTS COAT HANGER"], ["84029E", "RED WOOLLY HOTTIE WHITE HEART."]]
+                Turn 13: "show invoices from december 2010" -> failed, 0 row(s), error: invalid input syntax for type numeric: "December"
+                  SQL: SELECT invoice_no, invoice_date FROM invoices WHERE EXTRACT(MONTH FROM invoice_date) = 'December' LIMIT 100
+  Action      generate_sql(attempt 1/3)
+  Observation READ plan (confidence 0.90): Line items of invoice 536365.
+              SQL       SELECT stock_code, quantity, unit_price FROM invoice_items WHERE invoice_no = '536365' LIMIT 100
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ ONLY transaction.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 6 statements · 6.6 ms · txid vxid 3/3437
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY                         BEGIN               0.8 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.5 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.4 ms
+              │ SELECT virtualtransaction FROM pg_locks WHERE pid = pg_backend_pid(... SELECT 1            1.4 ms
+              │ SELECT stock_code, quantity, unit_price FROM invoice_items WHERE in... SELECT 7            2.9 ms
+              │ ROLLBACK                                                               ROLLBACK            0.6 ms
+              └─
+              result rows:
+                stock_code │ quantity │ unit_price
+                ───────────┼──────────┼───────────
+                85123A     │ 12       │ 2.55      
+                71053      │ 6        │ 3.39      
+                84406B     │ 8        │ 2.75      
+                84029G     │ 6        │ 3.39      
+                84029E     │ 6        │ 3.39      
+                22752      │ 2        │ 7.65      
+                21730      │ 6        │ 4.25      
+              status READ_ONLY · Read returned 7 row(s) in a READ ONLY transaction (rolled back: nothing to commit).  [audit #17]
+
+  ANSWER  SUCCESS  Returned 7 row(s) after 1 attempt(s).
+
+  USER ▶ only the ones with quantity above 6
+  Thought     New request. Session memory holds 14 earlier turn(s); I pass the last few to the planner as context. First I need a validated SQL plan.
+              memory given to the planner:
+                Turn 12: "find products with heart in the description" -> success, 3 row(s)
+                  SQL: SELECT stock_code, description FROM products WHERE description ILIKE '%heart%' LIMIT 100
+                  first rows: [["85123A", "WHITE HANGING HEART T-LIGHT HOLDER"], ["84406B", "CREAM CUPID HEARTS COAT HANGER"], ["84029E", "RED WOOLLY HOTTIE WHITE HEART."]]
+                Turn 13: "show invoices from december 2010" -> failed, 0 row(s), error: invalid input syntax for type numeric: "December"
+                  SQL: SELECT invoice_no, invoice_date FROM invoices WHERE EXTRACT(MONTH FROM invoice_date) = 'December' LIMIT 100
+                Turn 14: "show line items for invoice 536365" -> success, 7 row(s)
+                  SQL: SELECT stock_code, quantity, unit_price FROM invoice_items WHERE invoice_no = '536365' LIMIT 100
+                  first rows: [["85123A", 12, "2.55"], ["71053", 6, "3.39"], ["84406B", 8, "2.75"]]
+  Action      generate_sql(attempt 1/3)
+  Observation Intent parser resolved this as a follow-up of "show line items for invoice 536365" (session memory); inherited constraints: invoice_no = '536365', quantity > 6
+  Observation READ plan (confidence 0.90): Same invoice as the previous turn (from session memory), restricted to quantity > 6.
+              SQL       SELECT stock_code, quantity, unit_price FROM invoice_items WHERE invoice_no = '536365' AND quantity > 6 LIMIT 100
+  Action      check_guardrails(plan)
+  Observation verdict ALLOW · risk 0
+              - No Week 5 guardrail rule was triggered.
+  Thought     The plan is cleared. I will run it inside a READ ONLY transaction.
+  Action      execute_sandboxed(plan)
+  Observation
+              ┌─ sandboxed transaction · 6 statements · 7.8 ms · txid vxid 3/3463
+              │ BEGIN ISOLATION LEVEL READ COMMITTED READ ONLY                         BEGIN               0.8 ms
+              │ SET LOCAL statement_timeout = 5000                                     SET                 0.7 ms
+              │ SET LOCAL lock_timeout = 2000                                          SET                 0.8 ms
+              │ SELECT virtualtransaction FROM pg_locks WHERE pid = pg_backend_pid(... SELECT 1            1.7 ms
+              │ SELECT stock_code, quantity, unit_price FROM invoice_items WHERE in... SELECT 2            2.9 ms
+              │ ROLLBACK                                                               ROLLBACK            0.9 ms
+              └─
+              result rows:
+                stock_code │ quantity │ unit_price
+                ───────────┼──────────┼───────────
+                85123A     │ 12       │ 2.55      
+                84406B     │ 8        │ 2.75      
+              status READ_ONLY · Read returned 2 row(s) in a READ ONLY transaction (rolled back: nothing to commit).  [audit #18]
+
+  ANSWER  SUCCESS  Returned 2 row(s) after 1 attempt(s).
+
+━━ Scenario results ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  id    │ scenario                             │ expected    │ actual      │ tries │ ok
+  ──────┼──────────────────────────────────────┼─────────────┼─────────────┼───────┼───
+  W6-1  │ Read inside a READ ONLY sandbox      │ success     │ success     │ 1     │ ✓ 
+  W6-2  │ Committed write with pre-commit che… │ success     │ success     │ 1     │ ✓ 
+  W6-3  │ Dry run: write executed, then rolle… │ rolled_back │ rolled_back │ 1     │ ✓ 
+  W6-4  │ CHECK constraint violation captured  │ failed      │ failed      │ 1     │ ✓ 
+  W6-5  │ Trigger (business rule) rejection c… │ failed      │ failed      │ 1     │ ✓ 
+  W6-6  │ Foreign-key violation captured       │ failed      │ failed      │ 1     │ ✓ 
+  W6-7  │ Pre-commit invariant check rolls ba… │ rolled_back │ rolled_back │ 1     │ ✓ 
+  W6-8  │ Pre-commit check: an invoice would … │ rolled_back │ rolled_back │ 1     │ ✓ 
+  W6-9  │ Guardrail CONFIRM -> human approval… │ success     │ success     │ 1     │ ✓ 
+  W6-10 │ Guardrail BLOCK: never reaches the … │ blocked     │ blocked     │ 1     │ ✓ 
+  W7-1  │ ReAct: SQL error fed back -> correc… │ success     │ success     │ 2     │ ✓ 
+  W7-2  │ ReAct: empty result fed back -> cor… │ success     │ success     │ 2     │ ✓ 
+  W7-3  │ ReAct: bounded retries (budget exha… │ failed      │ failed      │ 3     │ ✓ 
+  W7-4  │ Session memory across turns          │ success     │ success     │ 2     │ ✓ 
+
+  14/14 scenarios behaved as expected
+
+━━ Database state after the demo (invoice 536365 and friends) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  · 85123A was committed (6 -> 12); 84029G was a dry run, 71053/22752/21730 were rolled back: all unchanged
+  invoice_no │ stock_code │ quantity │ unit_price
+  ───────────┼────────────┼──────────┼───────────
+  536365     │ 85123A     │ 12       │ 2.55      
+  536365     │ 71053      │ 6        │ 3.39      
+  536365     │ 84406B     │ 8        │ 2.75      
+  536365     │ 84029G     │ 6        │ 3.39      
+  536365     │ 84029E     │ 6        │ 3.39      
+  536365     │ 22752      │ 2        │ 7.65      
+  536365     │ 21730      │ 6        │ 4.25      
+  536414     │ 22139      │ 56       │ 0.00      
+
+  · 84406B survived the failed DELETE; 99999 was inserted after approval
+  stock_code │ description                   
+  ───────────┼───────────────────────────────
+  84406B     │ CREAM CUPID HEARTS COAT HANGER
+  99999      │ TEST MUG                      
+
+━━ execution_audit rows written for this session (Week 6) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  audit_id │ try │ execution_status │ verdict │ sqlstate │ rows │ txid        │ sql                                 
+  ─────────┼─────┼──────────────────┼─────────┼──────────┼──────┼─────────────┼─────────────────────────────────────
+  1        │ 1   │ read_only        │ allow   │          │ 0    │ vxid 3/3025 │ SELECT customer_id, country FROM cu…
+  2        │ 1   │ committed        │ allow   │          │ 1    │ 2106        │ UPDATE invoice_items SET quantity =…
+  3        │ 1   │ rolled_back      │ allow   │          │ 1    │ 2119        │ UPDATE invoice_items SET quantity =…
+  4        │ 1   │ failed           │ allow   │ 23514    │ 0    │ 2132        │ UPDATE invoice_items SET quantity =…
+  5        │ 1   │ failed           │ allow   │ P0001    │ 0    │ 2146        │ UPDATE invoice_items SET unit_price…
+  6        │ 1   │ failed           │ allow   │ 23503    │ 0    │ 2160        │ DELETE FROM products WHERE stock_co…
+  7        │ 1   │ rolled_back      │ allow   │          │ 1    │ 2174        │ UPDATE invoice_items SET quantity =…
+  8        │ 1   │ rolled_back      │ allow   │          │ 1    │ 2188        │ DELETE FROM invoice_items WHERE inv…
+  9        │ 1   │ committed        │ confirm │          │ 1    │ 2205        │ INSERT INTO products (stock_code, d…
+  10       │ 1   │ failed           │ allow   │ 42883    │ 0    │ vxid 3/3283 │ SELECT invoice_no, invoice_date, st…
+  11       │ 2   │ read_only        │ allow   │          │ 0    │ vxid 3/3303 │ SELECT invoice_no, invoice_date, st…
+  12       │ 1   │ read_only        │ allow   │          │ 0    │ vxid 3/3327 │ SELECT stock_code, description FROM…
+  13       │ 2   │ read_only        │ allow   │          │ 0    │ vxid 3/3347 │ SELECT stock_code, description FROM…
+  14       │ 1   │ failed           │ allow   │ 22007    │ 0    │ vxid 3/3371 │ SELECT invoice_no, invoice_date FRO…
+  15       │ 2   │ failed           │ allow   │ 42883    │ 0    │ vxid 3/3391 │ SELECT invoice_no, invoice_date FRO…
+  16       │ 3   │ failed           │ allow   │ 22P02    │ 0    │ vxid 3/3411 │ SELECT invoice_no, invoice_date FRO…
+  17       │ 1   │ read_only        │ allow   │          │ 0    │ vxid 3/3437 │ SELECT stock_code, quantity, unit_p…
+  18       │ 1   │ read_only        │ allow   │          │ 0    │ vxid 3/3463 │ SELECT stock_code, quantity, unit_p…
+
+  · compensation_ledger: undo SQL recorded for every committed write
+  audit_id │ compensation_status │ compensation_sql                    
+  ─────────┼─────────────────────┼─────────────────────────────────────
+  2        │ pending             │ UPDATE invoice_items SET quantity =…
+  9        │ pending             │ DELETE FROM products WHERE stock_co…
+
+━━ Session memory persisted in PostgreSQL (Week 7) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  event_type  │ events
+  ────────────┼───────
+  observation │ 57    
+  action      │ 56    
+  thought     │ 45    
+  answer      │ 15    
+
+━━ session memory · demo-9964e28c2572 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  #  │ request                              │ status      │ tries │ rows │ final SQL                           
+  ───┼──────────────────────────────────────┼─────────────┼───────┼──────┼─────────────────────────────────────
+  1  │ show customers from France           │ success     │ 1     │ 1    │ SELECT customer_id, country FROM cu…
+  2  │ set the quantity of stock code 8512… │ success     │ 1     │ 1    │ UPDATE invoice_items SET quantity =…
+  3  │ set the quantity of stock code 8402… │ rolled_back │ 1     │ 1    │ UPDATE invoice_items SET quantity =…
+  4  │ set the quantity of stock code 7105… │ failed      │ 1     │ NULL │ UPDATE invoice_items SET quantity =…
+  5  │ set the unit price of stock code 22… │ failed      │ 1     │ NULL │ UPDATE invoice_items SET unit_price…
+  6  │ delete the product with stock code … │ failed      │ 1     │ NULL │ DELETE FROM products WHERE stock_co…
+  7  │ set the quantity of stock code 2173… │ rolled_back │ 1     │ 1    │ UPDATE invoice_items SET quantity =…
+  8  │ delete the line items of invoice 53… │ rolled_back │ 1     │ 1    │ DELETE FROM invoice_items WHERE inv…
+  9  │ add a new product with stock code 9… │ success     │ 1     │ 1    │ INSERT INTO products (stock_code, d…
+  10 │ drop the invoices table              │ blocked     │ 1     │ NULL │                                     
+  11 │ show invoices for customer 17850     │ success     │ 2     │ 1    │ SELECT invoice_no, invoice_date, st…
+  12 │ find products with heart in the des… │ success     │ 2     │ 3    │ SELECT stock_code, description FROM…
+  13 │ show invoices from december 2010     │ failed      │ 3     │ 0    │ SELECT invoice_no, invoice_date FRO…
+  14 │ show line items for invoice 536365   │ success     │ 1     │ 7    │ SELECT stock_code, quantity, unit_p…
+  15 │ only the ones with quantity above 6  │ success     │ 1     │ 2    │ SELECT stock_code, quantity, unit_p…
+
+  · transcript : C:\Users\Shruthi\NLtoAction_DB_agent\results\week6_7_demo_2026-11-09_165319.txt
+  · JSON report: C:\Users\Shruthi\NLtoAction_DB_agent\results\week6_7_demo_2026-11-09_165319.json
+  · resume this session interactively: python database/react_agent.py -i --offline --session-id demo-9964e28c2572

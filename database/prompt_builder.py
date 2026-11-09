@@ -31,7 +31,8 @@ reason; never invent identifiers. UPDATE and DELETE must have a restrictive WHER
 never use an unscoped write. For UPDATE and DELETE, provide a SELECT COUNT(*) with the
 same target table and WHERE condition as the write. For INSERT, provide a SELECT COUNT(*)
 query against the target table scoped to the inserted row's identifying values. Never
-generate DDL or multiple statements. No generated SQL will be executed in this week."""
+generate DDL or multiple statements. The SQL is executed only after guardrail approval,
+inside a sandboxed transaction that is rolled back if any pre-commit check fails."""
 
 TOKEN_RE = re.compile(r"[a-z0-9]+")
 

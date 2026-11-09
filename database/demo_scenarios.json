@@ -1,0 +1,172 @@
+{
+  "note": "Scripted plans for the offline demo LLM. Attempt N is returned after N failed attempts. Everything else (parser, validator, guardrails, PostgreSQL execution) is real.",
+  "scenarios": [
+    {
+      "id": "W6-1",
+      "week": 6,
+      "title": "Read inside a READ ONLY sandbox",
+      "shows": "Reads run in BEGIN ... READ ONLY with statement/lock timeouts and are always rolled back.",
+      "expect": "success",
+      "request": "show customers from France",
+      "attempts": [
+        {"action_type": "read", "sql": "SELECT customer_id, country FROM customers WHERE country = 'France' LIMIT 100", "tables": ["customers"], "columns": ["customer_id", "country"], "explanation": "Customers whose country is France."}
+      ]
+    },
+    {
+      "id": "W6-2",
+      "week": 6,
+      "title": "Committed write with pre-commit checks and undo SQL",
+      "shows": "BEGIN -> count snapshot -> invariants -> SAVEPOINT -> UPDATE -> checks -> COMMIT; compensation SQL stored.",
+      "expect": "success",
+      "request": "set the quantity of stock code 85123A on invoice 536365 to 12",
+      "attempts": [
+        {"action_type": "write", "sql": "UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' AND stock_code = '85123A'", "count_sql": "SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '85123A'", "tables": ["invoice_items"], "columns": ["quantity", "invoice_no", "stock_code"], "explanation": "Set quantity to 12 for one line item."}
+      ]
+    },
+    {
+      "id": "W6-3",
+      "week": 6,
+      "title": "Dry run: write executed, then rolled back",
+      "shows": "The sandbox executes the write and runs every check, then discards it (--dry-run).",
+      "expect": "rolled_back",
+      "dry_run": true,
+      "request": "set the quantity of stock code 84029G on invoice 536365 to 10",
+      "attempts": [
+        {"action_type": "write", "sql": "UPDATE invoice_items SET quantity = 10 WHERE invoice_no = '536365' AND stock_code = '84029G'", "count_sql": "SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '84029G'", "tables": ["invoice_items"], "columns": ["quantity", "invoice_no", "stock_code"], "explanation": "Set quantity to 10 for one line item."}
+      ]
+    },
+    {
+      "id": "W6-4",
+      "week": 6,
+      "title": "CHECK constraint violation captured",
+      "shows": "SQLSTATE 23514 is captured with the constraint name; ROLLBACK; not retried (integrity error).",
+      "expect": "failed",
+      "request": "set the quantity of stock code 71053 on invoice 536365 to 0",
+      "attempts": [
+        {"action_type": "write", "sql": "UPDATE invoice_items SET quantity = 0 WHERE invoice_no = '536365' AND stock_code = '71053'", "count_sql": "SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '71053'", "tables": ["invoice_items"], "columns": ["quantity", "invoice_no", "stock_code"], "explanation": "Set quantity to 0 for one line item."}
+      ]
+    },
+    {
+      "id": "W6-5",
+      "week": 6,
+      "title": "Trigger (business rule) rejection captured",
+      "shows": "The unit-price trigger raises P0001; the error is captured and the transaction rolled back.",
+      "expect": "failed",
+      "request": "set the unit price of stock code 22752 on invoice 536365 to -5",
+      "attempts": [
+        {"action_type": "write", "sql": "UPDATE invoice_items SET unit_price = -5 WHERE invoice_no = '536365' AND stock_code = '22752'", "count_sql": "SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '22752'", "tables": ["invoice_items"], "columns": ["unit_price", "invoice_no", "stock_code"], "explanation": "Set unit price to -5 for one line item."}
+      ]
+    },
+    {
+      "id": "W6-6",
+      "week": 6,
+      "title": "Foreign-key violation captured",
+      "shows": "Deleting a product still referenced by line items hits ON DELETE RESTRICT (23503).",
+      "expect": "failed",
+      "request": "delete the product with stock code 84406B",
+      "attempts": [
+        {"action_type": "write", "sql": "DELETE FROM products WHERE stock_code = '84406B'", "count_sql": "SELECT COUNT(*) FROM products WHERE stock_code = '84406B'", "tables": ["products"], "columns": ["stock_code"], "explanation": "Delete one product by stock code."}
+      ]
+    },
+    {
+      "id": "W6-7",
+      "week": 6,
+      "title": "Pre-commit invariant check rolls back a valid-looking write",
+      "shows": "PostgreSQL accepts quantity -3, but the invariant 'negative quantities only on cancellations' rises 0 -> 1, so ROLLBACK.",
+      "expect": "rolled_back",
+      "request": "set the quantity of stock code 21730 on invoice 536365 to -3",
+      "attempts": [
+        {"action_type": "write", "sql": "UPDATE invoice_items SET quantity = -3 WHERE invoice_no = '536365' AND stock_code = '21730'", "count_sql": "SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '21730'", "tables": ["invoice_items"], "columns": ["quantity", "invoice_no", "stock_code"], "explanation": "Set quantity to -3 for one line item."}
+      ]
+    },
+    {
+      "id": "W6-8",
+      "week": 6,
+      "title": "Pre-commit check: an invoice would lose all its line items",
+      "shows": "The DELETE succeeds in PostgreSQL but leaves invoice 536414 empty; the invariant check rolls it back.",
+      "expect": "rolled_back",
+      "request": "delete the line items of invoice 536414",
+      "attempts": [
+        {"action_type": "write", "sql": "DELETE FROM invoice_items WHERE invoice_no = '536414'", "count_sql": "SELECT COUNT(*) FROM invoice_items WHERE invoice_no = '536414'", "tables": ["invoice_items"], "columns": ["invoice_no"], "explanation": "Delete the line items of one invoice."}
+      ]
+    },
+    {
+      "id": "W6-9",
+      "week": 6,
+      "title": "Guardrail CONFIRM -> human approval -> commit",
+      "shows": "Week 5 returns CONFIRM; execution happens only after approval; the INSERT's undo is a DELETE.",
+      "expect": "success",
+      "approve": true,
+      "request": "add a new product with stock code 99999 and description TEST MUG",
+      "attempts": [
+        {"action_type": "write", "sql": "INSERT INTO products (stock_code, description) VALUES ('99999', 'TEST MUG')", "count_sql": "SELECT COUNT(*) FROM products WHERE stock_code = '99999'", "tables": ["products"], "columns": ["stock_code", "description"], "explanation": "Insert one new product."}
+      ]
+    },
+    {
+      "id": "W6-10",
+      "week": 6,
+      "title": "Guardrail BLOCK: never reaches the database",
+      "shows": "DDL is blocked before planning; the executor gate would refuse it anyway.",
+      "expect": "blocked",
+      "request": "drop the invoices table"
+    },
+    {
+      "id": "W7-1",
+      "week": 7,
+      "title": "ReAct: SQL error fed back -> corrected retry",
+      "shows": "Attempt 1 compares VARCHAR customer_id to an integer (42883). The error is observed, fed back, and attempt 2 succeeds.",
+      "expect": "success",
+      "request": "show invoices for customer 17850",
+      "attempts": [
+        {"action_type": "read", "sql": "SELECT invoice_no, invoice_date, status FROM invoices WHERE customer_id = 17850 LIMIT 100", "tables": ["invoices"], "columns": ["invoice_no", "invoice_date", "status", "customer_id"], "explanation": "Invoices for customer 17850."},
+        {"action_type": "read", "sql": "SELECT invoice_no, invoice_date, status FROM invoices WHERE customer_id = '17850' LIMIT 100", "tables": ["invoices"], "columns": ["invoice_no", "invoice_date", "status", "customer_id"], "explanation": "customer_id is VARCHAR, so the identifier is now a quoted string literal."}
+      ]
+    },
+    {
+      "id": "W7-2",
+      "week": 7,
+      "title": "ReAct: empty result fed back -> corrected retry",
+      "shows": "Attempt 1 uses case-sensitive LIKE and returns 0 rows. The result is observed and fed back; attempt 2 uses ILIKE.",
+      "expect": "success",
+      "request": "find products with heart in the description",
+      "attempts": [
+        {"action_type": "read", "sql": "SELECT stock_code, description FROM products WHERE description LIKE '%heart%' LIMIT 100", "tables": ["products"], "columns": ["stock_code", "description"], "explanation": "Products whose description contains 'heart'."},
+        {"action_type": "read", "sql": "SELECT stock_code, description FROM products WHERE description ILIKE '%heart%' LIMIT 100", "tables": ["products"], "columns": ["stock_code", "description"], "explanation": "Descriptions are upper case, so the search is now case-insensitive (ILIKE)."}
+      ]
+    },
+    {
+      "id": "W7-3",
+      "week": 7,
+      "title": "ReAct: bounded retries (budget exhausted)",
+      "shows": "Three different date mistakes in a row; after the 3rd failed attempt the agent stops instead of looping.",
+      "expect": "failed",
+      "request": "show invoices from december 2010",
+      "attempts": [
+        {"action_type": "read", "sql": "SELECT invoice_no, invoice_date FROM invoices WHERE invoice_date = '2010-12' LIMIT 100", "tables": ["invoices"], "columns": ["invoice_no", "invoice_date"], "explanation": "Invoices dated December 2010."},
+        {"action_type": "read", "sql": "SELECT invoice_no, invoice_date FROM invoices WHERE invoice_date LIKE '2010-12%' LIMIT 100", "tables": ["invoices"], "columns": ["invoice_no", "invoice_date"], "explanation": "Match the December 2010 prefix."},
+        {"action_type": "read", "sql": "SELECT invoice_no, invoice_date FROM invoices WHERE EXTRACT(MONTH FROM invoice_date) = 'December' LIMIT 100", "tables": ["invoices"], "columns": ["invoice_no", "invoice_date"], "explanation": "Filter on the month name."}
+      ]
+    },
+    {
+      "id": "W7-4",
+      "week": 7,
+      "title": "Session memory across turns",
+      "shows": "Turn 2 is a follow-up ('only the ones with quantity above 6'). The parser resolves it from session state (inheriting invoice 536365) and the LLM receives the memory block of turn 1.",
+      "expect": "success",
+      "turns": [
+        {
+          "request": "show line items for invoice 536365",
+          "attempts": [
+            {"action_type": "read", "sql": "SELECT stock_code, quantity, unit_price FROM invoice_items WHERE invoice_no = '536365' LIMIT 100", "tables": ["invoice_items"], "columns": ["stock_code", "quantity", "unit_price", "invoice_no"], "explanation": "Line items of invoice 536365."}
+          ]
+        },
+        {
+          "request": "only the ones with quantity above 6",
+          "attempts": [
+            {"action_type": "read", "sql": "SELECT stock_code, quantity, unit_price FROM invoice_items WHERE invoice_no = '536365' AND quantity > 6 LIMIT 100", "tables": ["invoice_items"], "columns": ["stock_code", "quantity", "unit_price", "invoice_no"], "explanation": "Same invoice as the previous turn (from session memory), restricted to quantity > 6."}
+          ]
+        }
+      ]
+    }
+  ]
+}
