@@ -89,7 +89,10 @@ def test_write_above_block_threshold_is_blocked() -> None:
     assert "ROW_LIMIT" in {rule["rule_type"] for rule in result.triggered_rules}
 
 
-def test_missing_write_row_count_requires_confirmation() -> None:
+def test_missing_write_row_count_requires_confirmation(monkeypatch: pytest.MonkeyPatch) -> None:
+    # With a configured database the guardrail fetches the real count; this test is about having none.
+    for variable in ("DATABASE_URL", "PGDATABASE", "PGHOST"):
+        monkeypatch.delenv(variable, raising=False)
     result = engine().evaluate(
         plan(
             "UPDATE products SET description = 'x' WHERE stock_code = '85123A'",

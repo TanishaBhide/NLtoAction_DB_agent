@@ -96,8 +96,9 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if not args.no_reset:
-            display.note("resetting demo database to the Week 1 sample data ...")
-            apply_all(quiet=True)
+            display.note("resetting demo database to the 13-row Week 1 sample (the scenarios are written for it; "
+                         "python database/setup_demo_db.py restores the 2,000-row dataset) ...")
+            apply_all(quiet=True, dataset="sample")
 
         scenarios = load_scenarios()
         if args.only:
@@ -113,6 +114,7 @@ def main(argv: list[str] | None = None) -> int:
             interactive=False,
             auto_approve=False,
             auto_commit=True,
+            novelty=False,  # reproduce the Week 6/7 behaviour; Week 9 checks are shown by demo_week8_9.py
         )
 
         def approver(plan: Any, guardrail: Any) -> bool:

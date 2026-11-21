@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import sys
+import textwrap
 from typing import Any
 
 try:
@@ -36,6 +37,10 @@ LABELS = {
     "action": ("Action", "blue"),
     "observation": ("Observation", "cyan"),
     "answer": ("Answer", "bold"),
+}
+LEVEL_COLORS = {
+    "CONTAINED": "green", "MODERATE": "yellow", "WIDE": "red", "UNKNOWN": "grey",
+    "NO_BASELINE": "grey", "STABLE": "green", "SHIFT": "yellow", "DRIFT": "red",
 }
 
 
@@ -73,7 +78,7 @@ class Display:
     # ------------------------------------------------------------ headers
     def session_header(self, memory: Any, *, offline: bool) -> None:
         llm = "scripted demo LLM (offline)" if offline else f"{os.environ.get('LLM_PROVIDER', 'groq')} (live)"
-        self.rule("NL-to-Action agent · Weeks 6-7")
+        self.rule("NL-to-Action agent · Weeks 6-9")
         self.out(f"  session : {memory.session_id}  ({len(memory.turns)} earlier turn(s) in memory)")
         self.out(f"  planner : {llm}")
         self.out("  loop    : Thought -> Action -> Observation, bounded retries, sandboxed transactions")
@@ -96,7 +101,23 @@ class Display:
         if step.kind == "answer":
             status = step.data.get("status", "")
             badge = self.c(f" {status.upper()} ", STATUS_COLORS.get(status, "bold"), "bold")
-            self.out(f"\n  {self.c('ANSWER', 'bold')} {badge} {step.text}")
+            response = step.data.get("response")
+            if response is None:
+                self.out(f"\n  {self.c('ANSWER', 'bold')} {badge} {step.text}")
+                return
+            self.response(response, badge, step.text)
+            if step.data.get("request_id"):
+                self.note(f"Week 8 audit: request #{step.data['request_id']} written to agent_requests "
+                          f"(+{len(response.why_not)} explanation(s); trail: "
+                          f"python database/audit_log.py --request {step.data['request_id']})")
+            elif step.data.get("audit_warning"):
+                self.note(step.data["audit_warning"])
+            return
+        if step.kind == "observation" and "blast_radius" in step.data:
+            self.blast_radius(step.data["blast_radius"], tag)
+            return
+        if step.kind == "observation" and "drift" in step.data:
+            self.drift(step.data["drift"], tag)
             return
         if step.kind == "observation" and "guardrail" in step.data:
             guardrail = step.data["guardrail"]
@@ -171,6 +192,70 @@ class Display:
                  + (self.c(f"  [audit #{result.audit_id}]", "grey") if result.audit_id else ""))
         if result.audit_warning:
             self.note(result.audit_warning)
+
+    # ------------------------------------------------- Week 8 / Week 9
+    def wrap(self, text: str, indent: str, *styles: str) -> None:
+        for line in textwrap.wrap(text, width=max(40, self.width - len(indent))) or [""]:
+            self.out(self.c(indent + line, *styles) if styles else indent + line)
+
+    def response(self, response: Any, badge: str, technical: str) -> None:
+        pad = " " * 4
+        self.out(f"\n  {self.c('ANSWER', 'bold')} {badge} {self.c(response.headline, 'bold')}")
+        if response.summary:
+            self.wrap(response.summary, pad)
+        for index, item in enumerate(response.why_not, 1):
+            style = "yellow" if item.stage in {"result", "approval", "drift", "blast_radius"} else "red"
+            self.out(self.c(f"{pad}why not {index} ▸ [{item.stage}] {item.headline}", style, "bold"))
+            self.wrap(item.cause, pad + "    ")
+            if item.fix:
+                self.wrap("what you can do: " + item.fix, pad + "    ", "grey")
+        for note in response.notes:
+            self.wrap("note ▸ " + note, pad, "grey")
+        self.wrap("technical: " + technical, pad, "dim")
+
+    def blast_radius(self, radius: Any, tag: str) -> None:
+        pad = " " * 14
+        level = self.c(radius.level, LEVEL_COLORS.get(radius.level, "bold"), "bold")
+        if radius.error:
+            self.out(f"{tag}blast radius {level} · {radius.error}")
+            return
+        verb = {"DELETE": "delete", "UPDATE": "update", "INSERT": "insert"}[radius.statement_type]
+        share = f" ({radius.fraction:.0%} of the table)" if radius.fraction is not None else ""
+        self.out(f"{tag}blast radius {level} · would {verb} {radius.direct_rows} row(s) in "
+                 f"{radius.target_table}{share} · {radius.duration_ms:.0f} ms, read-only")
+        for impact in radius.impacts:
+            if impact.effect.startswith("direct"):
+                continue
+            style = "red" if impact.effect == "restrict" else "yellow"
+            self.out(self.c(f"{pad}↳ {impact.describe()}", style))
+        if radius.spread:
+            self.out(self.c(f"{pad}spans " + ", ".join(f"{n} distinct {t[:-1] if n == 1 and t.endswith('s') else t}"
+                                                       for t, n in radius.spread.items()),
+                            "grey"))
+        for trigger in radius.triggers:
+            self.out(self.c(f"{pad}trigger fires: {trigger}", "grey"))
+        if radius.predicted_failure:
+            self.out(self.c(f"{pad}predicted failure {radius.predicted_sqlstate}: {radius.predicted_failure}",
+                            "red", "bold"))
+        if radius.sample_rows and radius.statement_type != "INSERT":
+            self.out(self.c(f"{pad}rows it would {verb} (sample):", "grey"))
+            self.table(radius.sample_columns, radius.sample_rows, indent=pad + "  ", max_rows=5)
+
+    def drift(self, drift: Any, tag: str) -> None:
+        pad = " " * 14
+        level = self.c(drift.level, LEVEL_COLORS.get(drift.level, "bold"), "bold")
+        if drift.level == "NO_BASELINE":
+            self.out(f"{tag}intent drift {level} · first request of the session")
+            return
+        self.out(f"{tag}intent drift {level} · score {drift.score:.2f} vs {drift.baseline_turns} earlier turn(s)"
+                 + (self.c("  → escalate", "red", "bold") if drift.escalate else ""))
+        for name, value in sorted(drift.contributions.items(), key=lambda item: -item[1]):
+            if value <= 0:
+                continue
+            bar = "█" * max(1, round(value * 40))
+            self.out(self.c(f"{pad}{name:<24}{drift.features[name]:>5.2f} ", "grey") + self.c(bar, "magenta"))
+        for reason in drift.reasons:
+            self.wrap("- " + reason, pad, "grey")
 
     def preview(self, result: ExecutionResult) -> None:
         pad = " " * 14

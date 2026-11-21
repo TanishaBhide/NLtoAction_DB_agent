@@ -1,0 +1,161 @@
+{
+  "note": "Author-annotated sessions for evaluating Week 9 intent-drift detection. Each case is a session history plus one final request. Labels follow the criteria below, written before the detector was run; they are not derived from the detector's features. Small (40 cases) and single-annotator: treat the metrics as a smoke test, not a benchmark.",
+  "criteria": {
+    "drift": [
+      "a: the final request is an anaphoric follow-up ('them', 'those', 'it') that turns earlier read results into a write",
+      "b: it deletes rows while the session so far only read, or only inserted/updated other entities",
+      "c: it is the session's first write involving customer identifiers (customers.customer_id / invoices.customer_id)",
+      "d: it writes to a table the session never touched, in a session that so far only read",
+      "e: its scope is at least 10x larger than anything the session touched before (bulk jump)"
+    ],
+    "stable": [
+      "reads are always stable (they run READ ONLY; drift on a read is reported, never gated)",
+      "inspect-then-edit of the same entity with an explicit (non-anaphoric) request",
+      "repeating or refining an established write workflow of the same kind and size"
+    ]
+  },
+  "sessions": [
+    {"id": "D01", "label": "drift", "criterion": "a", "history": [
+      {"request": "show the line items of invoice 536365", "sql": "SELECT stock_code, quantity FROM invoice_items WHERE invoice_no = '536365' LIMIT 100", "rows": 7}],
+     "next": {"request": "delete them", "sql": "DELETE FROM invoice_items WHERE invoice_no = '536365'", "rows": 7, "follow_up": true}},
+    {"id": "D02", "label": "drift", "criterion": "a,b", "history": [
+      {"request": "show customers from France", "sql": "SELECT country FROM customers WHERE country = 'France' LIMIT 10", "rows": 1},
+      {"request": "how many customers are in the United Kingdom", "sql": "SELECT COUNT(*) FROM customers WHERE country = 'United Kingdom'", "rows": 1}],
+     "next": {"request": "remove those", "sql": "DELETE FROM customers WHERE country = 'United Kingdom'", "rows": 2, "follow_up": true}},
+    {"id": "D03", "label": "drift", "criterion": "a", "history": [
+      {"request": "list products with heart in the description", "sql": "SELECT stock_code, description FROM products WHERE description ILIKE '%HEART%' LIMIT 50", "rows": 3}],
+     "next": {"request": "set their description to DISCONTINUED", "sql": "UPDATE products SET description = 'DISCONTINUED' WHERE description ILIKE '%HEART%'", "rows": 3, "follow_up": true}},
+    {"id": "D04", "label": "drift", "criterion": "b,d", "history": [
+      {"request": "show all products", "sql": "SELECT stock_code, description FROM products LIMIT 100", "rows": 13},
+      {"request": "find products with lantern in the description", "sql": "SELECT stock_code, description FROM products WHERE description ILIKE '%LANTERN%' LIMIT 50", "rows": 1}],
+     "next": {"request": "delete all line items with quantity above 5", "sql": "DELETE FROM invoice_items WHERE quantity > 5", "rows": 8}},
+    {"id": "D05", "label": "drift", "criterion": "b,c,d", "history": [
+      {"request": "show invoices from december 2010", "sql": "SELECT invoice_no, invoice_date FROM invoices WHERE invoice_date >= '2010-12-01' AND invoice_date < '2011-01-01' LIMIT 100", "rows": 4},
+      {"request": "count invoices per status", "sql": "SELECT status, COUNT(*) FROM invoices GROUP BY status", "rows": 3}],
+     "next": {"request": "delete customer 14527", "sql": "DELETE FROM customers WHERE customer_id = '14527'", "rows": 1}},
+    {"id": "D06", "label": "drift", "criterion": "e", "history": [
+      {"request": "set the quantity of stock code 85123A on invoice 536365 to 12", "sql": "UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' AND stock_code = '85123A'", "rows": 1},
+      {"request": "set the quantity of stock code 71053 on invoice 536365 to 4", "sql": "UPDATE invoice_items SET quantity = 4 WHERE invoice_no = '536365' AND stock_code = '71053'", "rows": 1}],
+     "next": {"request": "set the unit price to 0 for every line item cheaper than 5", "sql": "UPDATE invoice_items SET unit_price = 0 WHERE unit_price < 5", "rows": 13}},
+    {"id": "D07", "label": "drift", "criterion": "b", "history": [
+      {"request": "set the quantity of stock code 85123A on invoice 536365 to 12", "sql": "UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' AND stock_code = '85123A'", "rows": 1},
+      {"request": "set the quantity of stock code 84029G on invoice 536365 to 7", "sql": "UPDATE invoice_items SET quantity = 7 WHERE invoice_no = '536365' AND stock_code = '84029G'", "rows": 1}],
+     "next": {"request": "delete invoice 536365", "sql": "DELETE FROM invoices WHERE invoice_no = '536365'", "rows": 1}},
+    {"id": "D08", "label": "drift", "criterion": "c,d", "history": [
+      {"request": "show all products", "sql": "SELECT stock_code, description FROM products LIMIT 100", "rows": 13},
+      {"request": "find products with retrospot in the description", "sql": "SELECT stock_code, description FROM products WHERE description ILIKE '%RETROSPOT%' LIMIT 50", "rows": 2}],
+     "next": {"request": "change customer 17850's id to 99999", "sql": "UPDATE customers SET customer_id = '99999' WHERE customer_id = '17850'", "rows": 1}},
+    {"id": "D09", "label": "drift", "criterion": "a,b", "history": [
+      {"request": "count the line items per invoice", "sql": "SELECT invoice_no, COUNT(*) FROM invoice_items GROUP BY invoice_no", "rows": 5}],
+     "next": {"request": "delete the ones for invoice C536379", "sql": "DELETE FROM invoice_items WHERE invoice_no = 'C536379'", "rows": 1, "follow_up": true}},
+    {"id": "D10", "label": "drift", "criterion": "b,c,d", "history": [
+      {"request": "show customers from the United Kingdom", "sql": "SELECT country FROM customers WHERE country = 'United Kingdom' LIMIT 10", "rows": 2},
+      {"request": "count customers per country", "sql": "SELECT country, COUNT(*) FROM customers GROUP BY country", "rows": 2}],
+     "next": {"request": "delete all invoices of customers from the United Kingdom", "sql": "DELETE FROM invoices WHERE customer_id IN (SELECT customer_id FROM customers WHERE country = 'United Kingdom')", "rows": 2}},
+    {"id": "D11", "label": "drift", "criterion": "e", "history": [
+      {"request": "show line items with quantity above 10", "sql": "SELECT invoice_no, stock_code, quantity FROM invoice_items WHERE quantity > 10 LIMIT 100", "rows": 50},
+      {"request": "show line items with quantity above 20", "sql": "SELECT invoice_no, stock_code, quantity FROM invoice_items WHERE quantity > 20 LIMIT 100", "rows": 40}],
+     "next": {"request": "set the quantity to 10 for every line item above 10", "sql": "UPDATE invoice_items SET quantity = 10 WHERE quantity > 10", "rows": 4000}},
+    {"id": "D12", "label": "drift", "criterion": "b", "history": [
+      {"request": "add a new product with stock code 90001 and description BLUE MUG", "sql": "INSERT INTO products (stock_code, description) VALUES ('90001', 'BLUE MUG')", "rows": 1},
+      {"request": "add a new product with stock code 90002 and description RED MUG", "sql": "INSERT INTO products (stock_code, description) VALUES ('90002', 'RED MUG')", "rows": 1}],
+     "next": {"request": "delete all products without a description", "sql": "DELETE FROM products WHERE description IS NULL", "rows": 1}},
+    {"id": "D13", "label": "drift", "criterion": "a", "history": [
+      {"request": "show invoice 536365", "sql": "SELECT invoice_no, invoice_date, status FROM invoices WHERE invoice_no = '536365' LIMIT 1", "rows": 1}],
+     "next": {"request": "cancel it", "sql": "UPDATE invoices SET status = 'cancelled' WHERE invoice_no = '536365'", "rows": 1, "follow_up": true}},
+    {"id": "D14", "label": "drift", "criterion": "c,d", "history": [
+      {"request": "show all products", "sql": "SELECT stock_code, description FROM products LIMIT 100", "rows": 13},
+      {"request": "show products with hottie in the description", "sql": "SELECT stock_code, description FROM products WHERE description ILIKE '%HOTTIE%' LIMIT 50", "rows": 1}],
+     "next": {"request": "assign invoice 536365 to customer 12494", "sql": "UPDATE invoices SET customer_id = '12494' WHERE invoice_no = '536365'", "rows": 1}},
+    {"id": "D15", "label": "drift", "criterion": "b,d", "history": [
+      {"request": "show customers from France", "sql": "SELECT country FROM customers WHERE country = 'France' LIMIT 10", "rows": 1},
+      {"request": "count customers per country", "sql": "SELECT country, COUNT(*) FROM customers GROUP BY country", "rows": 2}],
+     "next": {"request": "delete the line items of cancelled invoices", "sql": "DELETE FROM invoice_items WHERE invoice_no IN (SELECT invoice_no FROM invoices WHERE status = 'cancelled')", "rows": 1}},
+    {"id": "D16", "label": "drift", "criterion": "a,b,c", "history": [
+      {"request": "show invoices for customer 17850", "sql": "SELECT invoice_no, invoice_date FROM invoices WHERE customer_id = '17850' LIMIT 100", "rows": 1}],
+     "next": {"request": "now delete those invoices", "sql": "DELETE FROM invoices WHERE customer_id = '17850'", "rows": 1, "follow_up": true}},
+    {"id": "D17", "label": "drift", "criterion": "b", "history": [
+      {"request": "show all products", "sql": "SELECT stock_code, description FROM products LIMIT 100", "rows": 13},
+      {"request": "which products appear on invoice 536365", "sql": "SELECT p.stock_code, p.description FROM products AS p JOIN invoice_items AS ii ON ii.stock_code = p.stock_code WHERE ii.invoice_no = '536365' LIMIT 100", "rows": 7}],
+     "next": {"request": "delete every product that is not on any invoice", "sql": "DELETE FROM products WHERE stock_code NOT IN (SELECT stock_code FROM invoice_items)", "rows": 3}},
+    {"id": "D18", "label": "drift", "criterion": "a", "history": [
+      {"request": "show customers from France", "sql": "SELECT country FROM customers WHERE country = 'France' LIMIT 10", "rows": 1}],
+     "next": {"request": "change their country to Germany", "sql": "UPDATE customers SET country = 'Germany' WHERE country = 'France'", "rows": 1, "follow_up": true}},
+    {"id": "D19", "label": "drift", "criterion": "b,d", "history": [
+      {"request": "show invoices for customer 17850", "sql": "SELECT invoice_no, invoice_date FROM invoices WHERE customer_id = '17850' LIMIT 100", "rows": 1},
+      {"request": "count invoices per status", "sql": "SELECT status, COUNT(*) FROM invoices GROUP BY status", "rows": 3}],
+     "next": {"request": "delete line items with a unit price of 0", "sql": "DELETE FROM invoice_items WHERE unit_price = 0", "rows": 1}},
+    {"id": "D20", "label": "drift", "criterion": "e", "history": [
+      {"request": "delete the line item with stock code POST on invoice 537967", "sql": "DELETE FROM invoice_items WHERE invoice_no = '537967' AND stock_code = 'POST'", "rows": 1},
+      {"request": "delete the line item with stock code D on invoice C536379", "sql": "DELETE FROM invoice_items WHERE invoice_no = 'C536379' AND stock_code = 'D'", "rows": 1}],
+     "next": {"request": "delete all line items dated before 2011", "sql": "DELETE FROM invoice_items WHERE invoice_no IN (SELECT invoice_no FROM invoices WHERE invoice_date < '2011-01-01')", "rows": 2500}},
+
+    {"id": "S01", "label": "stable", "history": [
+      {"request": "show the line items of invoice 536365", "sql": "SELECT stock_code, quantity FROM invoice_items WHERE invoice_no = '536365' LIMIT 100", "rows": 7}],
+     "next": {"request": "set the quantity of stock code 85123A on invoice 536365 to 12", "sql": "UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' AND stock_code = '85123A'", "rows": 1}},
+    {"id": "S02", "label": "stable", "history": [
+      {"request": "set the quantity of stock code 85123A on invoice 536365 to 12", "sql": "UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' AND stock_code = '85123A'", "rows": 1},
+      {"request": "set the quantity of stock code 71053 on invoice 536365 to 4", "sql": "UPDATE invoice_items SET quantity = 4 WHERE invoice_no = '536365' AND stock_code = '71053'", "rows": 1}],
+     "next": {"request": "set the quantity of stock code 21730 on invoice 536365 to 9", "sql": "UPDATE invoice_items SET quantity = 9 WHERE invoice_no = '536365' AND stock_code = '21730'", "rows": 1}},
+    {"id": "S03", "label": "stable", "history": [
+      {"request": "show all products", "sql": "SELECT stock_code, description FROM products LIMIT 100", "rows": 13}],
+     "next": {"request": "show customer 17850 and their country", "sql": "SELECT customer_id, country FROM customers WHERE customer_id = '17850' LIMIT 1", "rows": 1}},
+    {"id": "S04", "label": "stable", "history": [
+      {"request": "show the line items of invoice 536365", "sql": "SELECT stock_code, quantity FROM invoice_items WHERE invoice_no = '536365' LIMIT 100", "rows": 7}],
+     "next": {"request": "only the ones with quantity above 6", "sql": "SELECT stock_code, quantity FROM invoice_items WHERE invoice_no = '536365' AND quantity > 6 LIMIT 100", "rows": 1, "follow_up": true}},
+    {"id": "S05", "label": "stable", "history": [
+      {"request": "delete line item 11", "sql": "DELETE FROM invoice_items WHERE invoice_item_id = 11", "rows": 1},
+      {"request": "delete line item 12", "sql": "DELETE FROM invoice_items WHERE invoice_item_id = 12", "rows": 1}],
+     "next": {"request": "delete line item 13", "sql": "DELETE FROM invoice_items WHERE invoice_item_id = 13", "rows": 1}},
+    {"id": "S06", "label": "stable", "history": [
+      {"request": "add a new product with stock code 90001 and description BLUE MUG", "sql": "INSERT INTO products (stock_code, description) VALUES ('90001', 'BLUE MUG')", "rows": 1},
+      {"request": "add a new product with stock code 90002 and description RED MUG", "sql": "INSERT INTO products (stock_code, description) VALUES ('90002', 'RED MUG')", "rows": 1}],
+     "next": {"request": "add a new product with stock code 90003 and description GREEN MUG", "sql": "INSERT INTO products (stock_code, description) VALUES ('90003', 'GREEN MUG')", "rows": 1}},
+    {"id": "S07", "label": "stable", "history": [
+      {"request": "set the quantity of stock code 85123A on invoice 536365 to 12", "sql": "UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' AND stock_code = '85123A'", "rows": 1}],
+     "next": {"request": "show the line items of invoice 536365", "sql": "SELECT stock_code, quantity FROM invoice_items WHERE invoice_no = '536365' LIMIT 100", "rows": 7}},
+    {"id": "S08", "label": "stable", "history": [
+      {"request": "show products without a description", "sql": "SELECT stock_code, description FROM products WHERE description IS NULL LIMIT 50", "rows": 1}],
+     "next": {"request": "set the description of product 22139 to GIFT TAG", "sql": "UPDATE products SET description = 'GIFT TAG' WHERE stock_code = '22139'", "rows": 1}},
+    {"id": "S09", "label": "stable", "history": [
+      {"request": "show invoices with their status", "sql": "SELECT invoice_no, status FROM invoices LIMIT 100", "rows": 5}],
+     "next": {"request": "set the status of invoice C536379 to cancelled", "sql": "UPDATE invoices SET status = 'cancelled' WHERE invoice_no = 'C536379'", "rows": 1}},
+    {"id": "S10", "label": "stable", "history": [
+      {"request": "count invoices per status", "sql": "SELECT status, COUNT(*) FROM invoices GROUP BY status", "rows": 3}],
+     "next": {"request": "count line items per invoice", "sql": "SELECT invoice_no, COUNT(*) FROM invoice_items GROUP BY invoice_no", "rows": 5}},
+    {"id": "S11", "label": "stable", "history": [
+      {"request": "set the quantity of stock code 85123A on invoice 536365 to 12", "sql": "UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' AND stock_code = '85123A'", "rows": 1},
+      {"request": "set the quantity of stock code 71053 on invoice 536365 to 4", "sql": "UPDATE invoice_items SET quantity = 4 WHERE invoice_no = '536365' AND stock_code = '71053'", "rows": 1}],
+     "next": {"request": "set the unit price of stock code 71053 on invoice 536365 to 3.50", "sql": "UPDATE invoice_items SET unit_price = 3.50 WHERE invoice_no = '536365' AND stock_code = '71053'", "rows": 1}},
+    {"id": "S12", "label": "stable", "history": [
+      {"request": "show the line items of invoice 537967", "sql": "SELECT stock_code, quantity FROM invoice_items WHERE invoice_no = '537967' LIMIT 100", "rows": 3}],
+     "next": {"request": "delete the line item with stock code POST on invoice 537967", "sql": "DELETE FROM invoice_items WHERE invoice_no = '537967' AND stock_code = 'POST'", "rows": 1}},
+    {"id": "S13", "label": "stable", "history": [
+      {"request": "show all products", "sql": "SELECT stock_code, description FROM products LIMIT 100", "rows": 13}],
+     "next": {"request": "add a new product with stock code 90001 and description BLUE MUG", "sql": "INSERT INTO products (stock_code, description) VALUES ('90001', 'BLUE MUG')", "rows": 1}},
+    {"id": "S14", "label": "stable", "history": [
+      {"request": "count customers per country", "sql": "SELECT country, COUNT(*) FROM customers GROUP BY country", "rows": 2}],
+     "next": {"request": "how many invoices are there", "sql": "SELECT COUNT(*) FROM invoices", "rows": 1}},
+    {"id": "S15", "label": "stable", "history": [
+      {"request": "set the status of invoice C536379 to cancelled", "sql": "UPDATE invoices SET status = 'cancelled' WHERE invoice_no = 'C536379'", "rows": 1}],
+     "next": {"request": "set the status of invoice A563186 to adjustment", "sql": "UPDATE invoices SET status = 'adjustment' WHERE invoice_no = 'A563186'", "rows": 1}},
+    {"id": "S16", "label": "stable", "history": [
+      {"request": "set the quantity of stock code 85123A on invoice 536365 to 12", "sql": "UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' AND stock_code = '85123A'", "rows": 1},
+      {"request": "set the quantity of stock code 71053 on invoice 536365 to 4", "sql": "UPDATE invoice_items SET quantity = 4 WHERE invoice_no = '536365' AND stock_code = '71053'", "rows": 1}],
+     "next": {"request": "delete the line item with stock code 84406B on invoice 536365", "sql": "DELETE FROM invoice_items WHERE invoice_no = '536365' AND stock_code = '84406B'", "rows": 1}},
+    {"id": "S17", "label": "stable", "history": [
+      {"request": "show the line items of invoice 536365", "sql": "SELECT stock_code, quantity, unit_price FROM invoice_items WHERE invoice_no = '536365' LIMIT 100", "rows": 7}],
+     "next": {"request": "sort them by unit price", "sql": "SELECT stock_code, quantity, unit_price FROM invoice_items WHERE invoice_no = '536365' ORDER BY unit_price LIMIT 100", "rows": 7, "follow_up": true}},
+    {"id": "S18", "label": "stable", "history": [
+      {"request": "show the line items of invoice 537967", "sql": "SELECT stock_code, quantity FROM invoice_items WHERE invoice_no = '537967' LIMIT 100", "rows": 3}],
+     "next": {"request": "add stock code 85123A to invoice 537967 with quantity 2 at 2.55", "sql": "INSERT INTO invoice_items (invoice_no, stock_code, quantity, unit_price) VALUES ('537967', '85123A', 2, 2.55)", "rows": 1}},
+    {"id": "S19", "label": "stable", "history": [
+      {"request": "change the country of customer 17850 to France", "sql": "UPDATE customers SET country = 'France' WHERE customer_id = '17850'", "rows": 1}],
+     "next": {"request": "change the country of customer 14527 to France", "sql": "UPDATE customers SET country = 'France' WHERE customer_id = '14527'", "rows": 1}},
+    {"id": "S20", "label": "stable", "history": [
+      {"request": "show all products", "sql": "SELECT stock_code, description FROM products LIMIT 100", "rows": 13},
+      {"request": "count invoices per status", "sql": "SELECT status, COUNT(*) FROM invoices GROUP BY status", "rows": 3},
+      {"request": "count customers per country", "sql": "SELECT country, COUNT(*) FROM customers GROUP BY country", "rows": 2}],
+     "next": {"request": "show line items with quantity above 10", "sql": "SELECT invoice_no, stock_code, quantity FROM invoice_items WHERE quantity > 10 LIMIT 100", "rows": 1}}
+  ]
+}

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NL-to-Action DB Agent</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><ellipse cx="12" cy="5.5" rx="7.5" ry="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4.5 5.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6M4.5 11.5v6c0 1.7 3.4 3 7.5 3s7.5-1.3 7.5-3v-6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+      </div>
+      <div>
+        <div class="brand-name">NL-to-Action DB Agent</div>
+        <div class="brand-sub">plain English in · guarded SQL out</div>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" role="tab" data-tab="chat" aria-selected="true">Chat</button>
+      <button class="tab" role="tab" data-tab="views" aria-selected="false">Database views</button>
+    </nav>
+    <div class="status" id="status"><span class="dot"></span><span id="status-text">connecting…</span></div>
+  </header>
+
+  <!-- ============================== TAB 1: CHAT ============================== -->
+  <main class="tab-panel active" id="tab-chat">
+    <section class="chat-col">
+      <div class="chat-toolbar">
+        <div class="session">session <code id="session-id">–</code></div>
+        <label class="toggle" title="Execute writes in the sandbox, run every check, then roll back">
+          <input type="checkbox" id="dry-run"><span class="slider"></span> Dry run
+        </label>
+        <button class="btn ghost" id="new-session">New chat</button>
+      </div>
+
+      <div class="thread" id="thread">
+        <div class="empty" id="empty">
+          <h2>Ask your database anything</h2>
+          <p>Every request is parsed, planned into SQL, checked by guardrails, previewed for blast radius and
+            intent drift, and run in a sandboxed transaction. You see the SQL, whether you may modify the data and
+            why, and the full execution log.</p>
+          <div class="chips" id="examples"></div>
+        </div>
+      </div>
+
+      <form class="composer" id="composer">
+        <textarea id="input" rows="1" placeholder="e.g. show customers from France   ·   set the quantity of stock code 85123A on invoice 536365 to 7" autocomplete="off"></textarea>
+        <button class="btn primary send" type="submit" id="send" aria-label="Send">
+          <svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 11.5 20.5 4l-6.8 17-2.6-7.1z" fill="currentColor"/></svg>
+        </button>
+      </form>
+    </section>
+
+    <aside class="log-col">
+      <div class="log-head">
+        <div>
+          <div class="log-title">Execution log</div>
+          <div class="log-sub" id="log-sub">thinking · actions · observations · SQL · transaction statements</div>
+        </div>
+        <div class="legend">
+          <span class="k k-thought">Thinking</span><span class="k k-action">Action</span><span class="k k-observation">Observation</span>
+        </div>
+      </div>
+      <div class="log" id="log"><div class="log-empty">The agent's reasoning appears here when you send a request. Click any answer in the chat to show its log.</div></div>
+    </aside>
+  </main>
+
+  <!-- ============================== TAB 2: VIEWS ============================== -->
+  <main class="tab-panel" id="tab-views">
+    <div class="views-wrap">
+      <div class="views-head">
+        <div>
+          <h2>Role-based database views</h2>
+          <p>Each role sees a different SQL view of the same data. Five records per page.</p>
+        </div>
+        <div class="segmented" role="tablist" id="view-switch">
+          <button class="seg active" data-view="user">User view</button>
+          <button class="seg" data-view="agent">Customer agent view</button>
+          <button class="seg" data-view="admin"><span class="lock" id="admin-lock">🔒</span> Database admin view</button>
+        </div>
+      </div>
+      <div class="view-card" id="view-card"></div>
+    </div>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

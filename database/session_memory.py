@@ -125,7 +125,9 @@ class SessionMemory:
 
     # ----------------------------------------------------------------- memory
     def add_turn(self, **values: Any) -> Turn:
-        turn = Turn(turn_no=len(self.turns) + 1, **values)
+        # Number from the last turn, not len(): the list is capped at MAX_TURNS_KEPT,
+        # and turn numbers key the Week 8 audit rows (session_id, turn_no).
+        turn = Turn(turn_no=(self.turns[-1].turn_no if self.turns else 0) + 1, **values)
         self.turns.append(turn)
         self.turns = self.turns[-MAX_TURNS_KEPT:]
         self._save_state()

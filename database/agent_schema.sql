@@ -2,6 +2,14 @@
 -- This gives later weeks a place to store sessions, policies, lookups, audits,
 -- and compensation records.
 
+-- Week 8/9 tables reference the tables below; drop them first so a reset
+-- recreates them (with their foreign keys) instead of leaving orphans.
+DROP VIEW IF EXISTS v_request_audit CASCADE;  -- also drops the web app's v_dba_activity
+DROP TABLE IF EXISTS blast_radius_previews CASCADE;
+DROP TABLE IF EXISTS drift_assessments CASCADE;
+DROP TABLE IF EXISTS request_explanations CASCADE;
+DROP TABLE IF EXISTS request_attempts CASCADE;
+DROP TABLE IF EXISTS agent_requests CASCADE;
 DROP TABLE IF EXISTS compensation_ledger CASCADE;
 DROP TABLE IF EXISTS execution_audit CASCADE;
 DROP TABLE IF EXISTS schema_lookup_log CASCADE;

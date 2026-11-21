@@ -145,3 +145,110 @@ def test_generator_passes_feedback_and_memory_into_the_llm_prompt():
 def test_scripted_llm_blocks_unknown_requests():
     plan = SQLGenerator(llm_client=ScriptedLLMClient()).generate("show customers from Germany")
     assert plan.blocked and "GROQ_API_KEY" in plan.block_reason
+
+
+# ------------------------------------------------------- Weeks 8-9 additions
+class FakeBlast:
+    def __init__(self, level="CONTAINED"):
+        self.level = level
+        self.calls = 0
+
+    def preview(self, plan):
+        from database.blast_radius import BlastRadius
+
+        self.calls += 1
+        return BlastRadius("UPDATE", "invoice_items", direct_rows=8, table_rows=13, level=self.level)
+
+
+class FakeDrift:
+    def __init__(self, escalate=False):
+        self.escalate = escalate
+
+    def assess_plan(self, request, plan, turns, **_):
+        from database.intent_drift import DriftAssessment
+
+        level = "DRIFT" if self.escalate else "STABLE"
+        return DriftAssessment(0.6 if self.escalate else 0.1, level, self.escalate, len(turns), reasons=["r"])
+
+
+class RecordingExecutor(FakeExecutor):
+    def execute(self, plan, guardrail, **kwargs):
+        self.seen = (guardrail.verdict, kwargs.get("approved"))
+        return super().execute(plan, guardrail, **kwargs)
+
+
+def write_plan():
+    return ActionPlan("write", "UPDATE invoice_items SET quantity = 1 WHERE quantity > 5", ["invoice_items"], [],
+                      "x", 0.9, "SELECT COUNT(*) FROM invoice_items WHERE quantity > 5", False, None)
+
+
+def committed():
+    return ExecutionResult("committed", "write", "UPDATE", "ok", affected_rows=8, checks=[])
+
+
+def test_wide_blast_radius_escalates_allow_to_confirm_and_does_not_execute():
+    blast = FakeBlast("WIDE")
+    a = agent([write_plan()], [committed()], blast_analyzer=blast)
+    run = a.run("set the quantity to 1 for every line item above 5")
+    assert run.status == "needs_approval" and run.stop_reason == "not_approved"
+    assert a.executor.calls == 0 and blast.calls == 1
+    assert run.guardrail.verdict == "ALLOW" and run.effective_verdict == "CONFIRM"
+    assert [e["code"] for e in run.escalations] == ["BLAST_RADIUS_WIDE"]
+
+
+def test_drift_escalation_is_reviewed_but_executor_keeps_the_week5_verdict():
+    seen = {}
+
+    def approver(plan, review):
+        seen["verdict"] = review.verdict
+        return True
+
+    executor = RecordingExecutor([committed()])
+    a = ReActAgent(FakeGenerator([write_plan()]), FakeGuardrails("ALLOW"), executor,
+                   SessionMemory("unit-test", persist=False), approver=approver, drift_detector=FakeDrift(True))
+    run = a.run("delete them")
+    assert run.status == "success" and run.approved
+    assert seen["verdict"] == "CONFIRM"            # the human reviews an escalated plan ...
+    assert executor.seen == ("ALLOW", True)        # ... but no larger approved-CONFIRM row limit is unlocked
+
+
+def test_novelty_never_relaxes_a_block():
+    a = agent([write_plan()], [committed()], verdict="BLOCK", blast_analyzer=FakeBlast("CONTAINED"),
+              drift_detector=FakeDrift(False))
+    run = a.run("x")
+    assert run.status == "blocked" and run.blast_radius is None and run.drift is None
+
+
+def test_reads_skip_the_blast_radius_preview():
+    blast = FakeBlast("WIDE")
+    a = agent([read_plan()], [ok()], blast_analyzer=blast, drift_detector=FakeDrift(False))
+    run = a.run("show x")
+    assert run.status == "success" and blast.calls == 0 and run.drift.level == "STABLE"
+
+
+def test_explainer_and_auditor_run_once_per_request():
+    class Auditor:
+        warning = None
+
+        def __init__(self):
+            self.turns = []
+
+        def record(self, run, *, turn_no):
+            self.turns.append((turn_no, run.response.headline))
+            return 41 + turn_no
+
+    from database.explainer import ResponseBuilder
+
+    auditor = Auditor()
+    a = agent([read_plan()], [ok()], explainer=ResponseBuilder(), auditor=auditor)
+    first, second = a.run("show x"), a.run("show y")
+    assert (first.request_id, second.request_id) == (42, 43)
+    assert [t for t, _ in auditor.turns] == [1, 2]
+    assert first.steps[-1].kind == "answer" and first.steps[-1].data["request_id"] == 42
+
+
+def test_turn_numbers_keep_increasing_past_the_memory_cap():
+    memory = SessionMemory("cap", persist=False)
+    for _ in range(25):
+        turn = memory.add_turn(request="r", action_type="read", status="success", final_sql=None)
+    assert turn.turn_no == 25 and len(memory.turns) == 20

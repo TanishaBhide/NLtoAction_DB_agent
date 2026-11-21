@@ -1,0 +1,1351 @@
+{
+  "generated": "2026-11-20T18:50:30",
+  "intent_drift": {
+    "cases": 40,
+    "detector": {
+      "tp": 14,
+      "fp": 0,
+      "fn": 6,
+      "tn": 20,
+      "precision": 1.0,
+      "recall": 0.7,
+      "f1": 0.824,
+      "accuracy": 0.85
+    },
+    "per_case": [
+      {
+        "id": "D01",
+        "gold": true,
+        "pred": true,
+        "score": 0.5,
+        "level": "DRIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.3,
+          "follow_up_flip": 0.2,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0
+        }
+      },
+      {
+        "id": "D02",
+        "gold": true,
+        "pred": true,
+        "score": 0.5151,
+        "level": "DRIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.3,
+          "follow_up_flip": 0.2,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0151,
+          "semantic_shift": 0.0
+        }
+      },
+      {
+        "id": "D03",
+        "gold": true,
+        "pred": true,
+        "score": 0.4592,
+        "level": "DRIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.2,
+          "follow_up_flip": 0.2,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0592
+        }
+      },
+      {
+        "id": "D04",
+        "gold": true,
+        "pred": true,
+        "score": 0.5529,
+        "level": "DRIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.3,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.15,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0029,
+          "semantic_shift": 0.1
+        }
+      },
+      {
+        "id": "D05",
+        "gold": true,
+        "pred": true,
+        "score": 0.7,
+        "level": "DRIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.3,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.15,
+          "sensitivity_escalation": 0.15,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.1
+        }
+      },
+      {
+        "id": "D06",
+        "gold": true,
+        "pred": false,
+        "score": 0.1557,
+        "level": "STABLE",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.0,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0557,
+          "semantic_shift": 0.1
+        }
+      },
+      {
+        "id": "D07",
+        "gold": true,
+        "pred": false,
+        "score": 0.3,
+        "level": "SHIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.1,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.15,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.05
+        }
+      },
+      {
+        "id": "D08",
+        "gold": true,
+        "pred": true,
+        "score": 0.6,
+        "level": "DRIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.2,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.15,
+          "sensitivity_escalation": 0.15,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.1
+        }
+      },
+      {
+        "id": "D09",
+        "gold": true,
+        "pred": true,
+        "score": 0.5553,
+        "level": "DRIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.3,
+          "follow_up_flip": 0.2,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0553
+        }
+      },
+      {
+        "id": "D10",
+        "gold": true,
+        "pred": true,
+        "score": 0.5583,
+        "level": "DRIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.3,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.15,
+          "sensitivity_escalation": 0.075,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0333
+        }
+      },
+      {
+        "id": "D11",
+        "gold": true,
+        "pred": false,
+        "score": 0.308,
+        "level": "SHIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.2,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0974,
+          "semantic_shift": 0.0106
+        }
+      },
+      {
+        "id": "D12",
+        "gold": true,
+        "pred": false,
+        "score": 0.2547,
+        "level": "SHIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.2,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0547
+        }
+      },
+      {
+        "id": "D13",
+        "gold": true,
+        "pred": true,
+        "score": 0.5,
+        "level": "DRIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.2,
+          "follow_up_flip": 0.2,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.1
+        }
+      },
+      {
+        "id": "D14",
+        "gold": true,
+        "pred": true,
+        "score": 0.6,
+        "level": "DRIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.2,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.15,
+          "sensitivity_escalation": 0.15,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.1
+        }
+      },
+      {
+        "id": "D15",
+        "gold": true,
+        "pred": true,
+        "score": 0.55,
+        "level": "DRIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.3,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.15,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.1
+        }
+      },
+      {
+        "id": "D16",
+        "gold": true,
+        "pred": true,
+        "score": 0.6793,
+        "level": "DRIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.3,
+          "follow_up_flip": 0.2,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.15,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0293
+        }
+      },
+      {
+        "id": "D17",
+        "gold": true,
+        "pred": false,
+        "score": 0.3452,
+        "level": "SHIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.3,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0452
+        }
+      },
+      {
+        "id": "D18",
+        "gold": true,
+        "pred": true,
+        "score": 0.5,
+        "level": "DRIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.2,
+          "follow_up_flip": 0.2,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.1
+        }
+      },
+      {
+        "id": "D19",
+        "gold": true,
+        "pred": true,
+        "score": 0.55,
+        "level": "DRIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.3,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.15,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.1
+        }
+      },
+      {
+        "id": "D20",
+        "gold": true,
+        "pred": false,
+        "score": 0.1564,
+        "level": "STABLE",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.0,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.1,
+          "semantic_shift": 0.0564
+        }
+      },
+      {
+        "id": "S01",
+        "gold": false,
+        "pred": false,
+        "score": 0.2711,
+        "level": "SHIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.2,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0711
+        }
+      },
+      {
+        "id": "S02",
+        "gold": false,
+        "pred": false,
+        "score": 0.0,
+        "level": "STABLE",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.0,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0
+        }
+      },
+      {
+        "id": "S03",
+        "gold": false,
+        "pred": false,
+        "score": 0.325,
+        "level": "SHIFT",
+        "action": "read",
+        "contributions": {
+          "action_escalation": 0.0,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.15,
+          "sensitivity_escalation": 0.075,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.1
+        }
+      },
+      {
+        "id": "S04",
+        "gold": false,
+        "pred": false,
+        "score": 0.1,
+        "level": "STABLE",
+        "action": "read",
+        "contributions": {
+          "action_escalation": 0.0,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.1
+        }
+      },
+      {
+        "id": "S05",
+        "gold": false,
+        "pred": false,
+        "score": 0.0,
+        "level": "STABLE",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.0,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0
+        }
+      },
+      {
+        "id": "S06",
+        "gold": false,
+        "pred": false,
+        "score": 0.0111,
+        "level": "STABLE",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.0,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0111
+        }
+      },
+      {
+        "id": "S07",
+        "gold": false,
+        "pred": false,
+        "score": 0.1134,
+        "level": "STABLE",
+        "action": "read",
+        "contributions": {
+          "action_escalation": 0.0,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0423,
+          "semantic_shift": 0.0711
+        }
+      },
+      {
+        "id": "S08",
+        "gold": false,
+        "pred": false,
+        "score": 0.2423,
+        "level": "STABLE",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.2,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0423
+        }
+      },
+      {
+        "id": "S09",
+        "gold": false,
+        "pred": false,
+        "score": 0.2184,
+        "level": "STABLE",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.2,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0184
+        }
+      },
+      {
+        "id": "S10",
+        "gold": false,
+        "pred": false,
+        "score": 0.194,
+        "level": "STABLE",
+        "action": "read",
+        "contributions": {
+          "action_escalation": 0.0,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.15,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0111,
+          "semantic_shift": 0.0329
+        }
+      },
+      {
+        "id": "S11",
+        "gold": false,
+        "pred": false,
+        "score": 0.0329,
+        "level": "STABLE",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.0,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0329
+        }
+      },
+      {
+        "id": "S12",
+        "gold": false,
+        "pred": false,
+        "score": 0.3293,
+        "level": "SHIFT",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.3,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0293
+        }
+      },
+      {
+        "id": "S13",
+        "gold": false,
+        "pred": false,
+        "score": 0.1622,
+        "level": "STABLE",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.1,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0622
+        }
+      },
+      {
+        "id": "S14",
+        "gold": false,
+        "pred": false,
+        "score": 0.25,
+        "level": "SHIFT",
+        "action": "read",
+        "contributions": {
+          "action_escalation": 0.0,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.15,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.1
+        }
+      },
+      {
+        "id": "S15",
+        "gold": false,
+        "pred": false,
+        "score": 0.0333,
+        "level": "STABLE",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.0,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0333
+        }
+      },
+      {
+        "id": "S16",
+        "gold": false,
+        "pred": false,
+        "score": 0.1329,
+        "level": "STABLE",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.1,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0329
+        }
+      },
+      {
+        "id": "S17",
+        "gold": false,
+        "pred": false,
+        "score": 0.1,
+        "level": "STABLE",
+        "action": "read",
+        "contributions": {
+          "action_escalation": 0.0,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.1
+        }
+      },
+      {
+        "id": "S18",
+        "gold": false,
+        "pred": false,
+        "score": 0.1742,
+        "level": "STABLE",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.1,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.0742
+        }
+      },
+      {
+        "id": "S19",
+        "gold": false,
+        "pred": false,
+        "score": 0.0,
+        "level": "STABLE",
+        "action": "write",
+        "contributions": {
+          "action_escalation": 0.0,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.0,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": -0.0
+        }
+      },
+      {
+        "id": "S20",
+        "gold": false,
+        "pred": false,
+        "score": 0.25,
+        "level": "SHIFT",
+        "action": "read",
+        "contributions": {
+          "action_escalation": 0.0,
+          "follow_up_flip": 0.0,
+          "table_novelty": 0.15,
+          "sensitivity_escalation": 0.0,
+          "scope_escalation": 0.0,
+          "semantic_shift": 0.1
+        }
+      }
+    ],
+    "baselines": {
+      "week5_per_request_only": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 20,
+        "tn": 20,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "accuracy": 0.5
+      },
+      "naive_any_write_after_read_only_history": {
+        "tp": 16,
+        "fp": 6,
+        "fn": 4,
+        "tn": 14,
+        "precision": 0.727,
+        "recall": 0.8,
+        "f1": 0.762,
+        "accuracy": 0.75
+      },
+      "naive_statement_type_changed": {
+        "tp": 18,
+        "fp": 7,
+        "fn": 2,
+        "tn": 13,
+        "precision": 0.72,
+        "recall": 0.9,
+        "f1": 0.8,
+        "accuracy": 0.775
+      }
+    },
+    "ablation_without_feature": {
+      "action_escalation": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 20,
+        "tn": 20,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "accuracy": 0.5
+      },
+      "follow_up_flip": {
+        "tp": 8,
+        "fp": 0,
+        "fn": 12,
+        "tn": 20,
+        "precision": 1.0,
+        "recall": 0.4,
+        "f1": 0.571,
+        "accuracy": 0.7
+      },
+      "table_novelty": {
+        "tp": 10,
+        "fp": 0,
+        "fn": 10,
+        "tn": 20,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.667,
+        "accuracy": 0.75
+      },
+      "sensitivity_escalation": {
+        "tp": 14,
+        "fp": 0,
+        "fn": 6,
+        "tn": 20,
+        "precision": 1.0,
+        "recall": 0.7,
+        "f1": 0.824,
+        "accuracy": 0.85
+      },
+      "scope_escalation": {
+        "tp": 14,
+        "fp": 0,
+        "fn": 6,
+        "tn": 20,
+        "precision": 1.0,
+        "recall": 0.7,
+        "f1": 0.824,
+        "accuracy": 0.85
+      },
+      "semantic_shift": {
+        "tp": 11,
+        "fp": 0,
+        "fn": 9,
+        "tn": 20,
+        "precision": 1.0,
+        "recall": 0.55,
+        "f1": 0.71,
+        "accuracy": 0.775
+      }
+    },
+    "threshold_sweep": {
+      "0.25": {
+        "tp": 18,
+        "fp": 2,
+        "fn": 2,
+        "tn": 18,
+        "precision": 0.9,
+        "recall": 0.9,
+        "f1": 0.9,
+        "accuracy": 0.9
+      },
+      "0.3": {
+        "tp": 17,
+        "fp": 1,
+        "fn": 3,
+        "tn": 19,
+        "precision": 0.944,
+        "recall": 0.85,
+        "f1": 0.895,
+        "accuracy": 0.9
+      },
+      "0.35": {
+        "tp": 14,
+        "fp": 0,
+        "fn": 6,
+        "tn": 20,
+        "precision": 1.0,
+        "recall": 0.7,
+        "f1": 0.824,
+        "accuracy": 0.85
+      },
+      "0.4": {
+        "tp": 14,
+        "fp": 0,
+        "fn": 6,
+        "tn": 20,
+        "precision": 1.0,
+        "recall": 0.7,
+        "f1": 0.824,
+        "accuracy": 0.85
+      },
+      "0.45": {
+        "tp": 14,
+        "fp": 0,
+        "fn": 6,
+        "tn": 20,
+        "precision": 1.0,
+        "recall": 0.7,
+        "f1": 0.824,
+        "accuracy": 0.85
+      },
+      "0.5": {
+        "tp": 13,
+        "fp": 0,
+        "fn": 7,
+        "tn": 20,
+        "precision": 1.0,
+        "recall": 0.65,
+        "f1": 0.788,
+        "accuracy": 0.825
+      },
+      "0.55": {
+        "tp": 9,
+        "fp": 0,
+        "fn": 11,
+        "tn": 20,
+        "precision": 1.0,
+        "recall": 0.45,
+        "f1": 0.621,
+        "accuracy": 0.725
+      },
+      "0.6": {
+        "tp": 4,
+        "fp": 0,
+        "fn": 16,
+        "tn": 20,
+        "precision": 1.0,
+        "recall": 0.2,
+        "f1": 0.333,
+        "accuracy": 0.6
+      }
+    }
+  },
+  "blast_radius": {
+    "cases": 21,
+    "in_scope_cases": 19,
+    "impact_exact_match": "13/13",
+    "impact_exact_match_rate": 1.0,
+    "failure_prediction": {
+      "tp": 6,
+      "fp": 0,
+      "fn": 0,
+      "tn": 13,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "accuracy": 1.0
+    },
+    "failure_sqlstate_exact": "19/19",
+    "week5_count_underestimates": "7/13",
+    "rows_hidden_from_week5_count": 21,
+    "out_of_scope_failures": [
+      {
+        "id": "B20",
+        "actual_sqlstate": "23514",
+        "note": "CHECK constraint 23514"
+      },
+      {
+        "id": "B21",
+        "actual_sqlstate": "P0001",
+        "note": "trigger raises P0001"
+      }
+    ],
+    "preview_ms_mean": 53.72,
+    "preview_ms_max": 158.7,
+    "per_case": [
+      {
+        "id": "B01",
+        "note": "single-row update",
+        "in_scope": true,
+        "level": "CONTAINED",
+        "predicted_sqlstate": null,
+        "actual_sqlstate": null,
+        "predicted_changes": {
+          "invoice_items": {
+            "updated": 1
+          }
+        },
+        "actual_changes": {
+          "invoice_items": {
+            "updated": 1
+          }
+        },
+        "direct_rows": 1,
+        "actual_total_rows": 1,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 95.76,
+        "error": null
+      },
+      {
+        "id": "B02",
+        "note": "bulk update, most of the table",
+        "in_scope": true,
+        "level": "WIDE",
+        "predicted_sqlstate": null,
+        "actual_sqlstate": null,
+        "predicted_changes": {
+          "invoice_items": {
+            "updated": 8
+          }
+        },
+        "actual_changes": {
+          "invoice_items": {
+            "updated": 8
+          }
+        },
+        "direct_rows": 8,
+        "actual_total_rows": 8,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 37.51,
+        "error": null
+      },
+      {
+        "id": "B03",
+        "note": "plain delete",
+        "in_scope": true,
+        "level": "CONTAINED",
+        "predicted_sqlstate": null,
+        "actual_sqlstate": null,
+        "predicted_changes": {
+          "invoice_items": {
+            "deleted": 1
+          }
+        },
+        "actual_changes": {
+          "invoice_items": {
+            "deleted": 1
+          }
+        },
+        "direct_rows": 1,
+        "actual_total_rows": 1,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 43.67,
+        "error": null
+      },
+      {
+        "id": "B04",
+        "note": "ON DELETE CASCADE to 7 line items",
+        "in_scope": true,
+        "level": "MODERATE",
+        "predicted_sqlstate": null,
+        "actual_sqlstate": null,
+        "predicted_changes": {
+          "invoices": {
+            "deleted": 1
+          },
+          "invoice_items": {
+            "deleted": 7
+          }
+        },
+        "actual_changes": {
+          "invoices": {
+            "deleted": 1
+          },
+          "invoice_items": {
+            "deleted": 7
+          }
+        },
+        "direct_rows": 1,
+        "actual_total_rows": 8,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 50.97,
+        "error": null
+      },
+      {
+        "id": "B05",
+        "note": "ON DELETE CASCADE to 1 line item",
+        "in_scope": true,
+        "level": "MODERATE",
+        "predicted_sqlstate": null,
+        "actual_sqlstate": null,
+        "predicted_changes": {
+          "invoices": {
+            "deleted": 1
+          },
+          "invoice_items": {
+            "deleted": 1
+          }
+        },
+        "actual_changes": {
+          "invoices": {
+            "deleted": 1
+          },
+          "invoice_items": {
+            "deleted": 1
+          }
+        },
+        "direct_rows": 1,
+        "actual_total_rows": 2,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 158.7,
+        "error": null
+      },
+      {
+        "id": "B06",
+        "note": "two invoices, cascade to their items",
+        "in_scope": true,
+        "level": "MODERATE",
+        "predicted_sqlstate": null,
+        "actual_sqlstate": null,
+        "predicted_changes": {
+          "invoices": {
+            "deleted": 2
+          },
+          "invoice_items": {
+            "deleted": 2
+          }
+        },
+        "actual_changes": {
+          "invoices": {
+            "deleted": 2
+          },
+          "invoice_items": {
+            "deleted": 2
+          }
+        },
+        "direct_rows": 2,
+        "actual_total_rows": 4,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 44.85,
+        "error": null
+      },
+      {
+        "id": "B07",
+        "note": "ON DELETE SET NULL on invoices",
+        "in_scope": true,
+        "level": "MODERATE",
+        "predicted_sqlstate": null,
+        "actual_sqlstate": null,
+        "predicted_changes": {
+          "customers": {
+            "deleted": 1
+          },
+          "invoices": {
+            "updated": 1
+          }
+        },
+        "actual_changes": {
+          "customers": {
+            "deleted": 1
+          },
+          "invoices": {
+            "updated": 1
+          }
+        },
+        "direct_rows": 1,
+        "actual_total_rows": 2,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 48.66,
+        "error": null
+      },
+      {
+        "id": "B08",
+        "note": "two customers, SET NULL on two invoices",
+        "in_scope": true,
+        "level": "WIDE",
+        "predicted_sqlstate": null,
+        "actual_sqlstate": null,
+        "predicted_changes": {
+          "customers": {
+            "deleted": 2
+          },
+          "invoices": {
+            "updated": 2
+          }
+        },
+        "actual_changes": {
+          "customers": {
+            "deleted": 2
+          },
+          "invoices": {
+            "updated": 2
+          }
+        },
+        "direct_rows": 2,
+        "actual_total_rows": 4,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 37.36,
+        "error": null
+      },
+      {
+        "id": "B09",
+        "note": "ON DELETE RESTRICT -> 23503",
+        "in_scope": true,
+        "level": "CONTAINED",
+        "predicted_sqlstate": "23503",
+        "actual_sqlstate": "23503",
+        "predicted_changes": {},
+        "actual_changes": {},
+        "direct_rows": 1,
+        "actual_total_rows": 0,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 35.71,
+        "error": null
+      },
+      {
+        "id": "B10",
+        "note": "RESTRICT through a NULL-description product -> 23503",
+        "in_scope": true,
+        "level": "CONTAINED",
+        "predicted_sqlstate": "23503",
+        "actual_sqlstate": "23503",
+        "predicted_changes": {},
+        "actual_changes": {},
+        "direct_rows": 1,
+        "actual_total_rows": 0,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 49.02,
+        "error": null
+      },
+      {
+        "id": "B11",
+        "note": "matches nothing",
+        "in_scope": true,
+        "level": "CONTAINED",
+        "predicted_sqlstate": null,
+        "actual_sqlstate": null,
+        "predicted_changes": {},
+        "actual_changes": {},
+        "direct_rows": 0,
+        "actual_total_rows": 0,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 39.94,
+        "error": null
+      },
+      {
+        "id": "B12",
+        "note": "ON UPDATE CASCADE to invoices",
+        "in_scope": true,
+        "level": "MODERATE",
+        "predicted_sqlstate": null,
+        "actual_sqlstate": null,
+        "predicted_changes": {
+          "customers": {
+            "updated": 1
+          },
+          "invoices": {
+            "updated": 1
+          }
+        },
+        "actual_changes": {
+          "customers": {
+            "updated": 1
+          },
+          "invoices": {
+            "updated": 1
+          }
+        },
+        "direct_rows": 1,
+        "actual_total_rows": 2,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 40.28,
+        "error": null
+      },
+      {
+        "id": "B13",
+        "note": "ON UPDATE CASCADE to 7 line items, triggers fire",
+        "in_scope": true,
+        "level": "MODERATE",
+        "predicted_sqlstate": null,
+        "actual_sqlstate": null,
+        "predicted_changes": {
+          "invoices": {
+            "updated": 1
+          },
+          "invoice_items": {
+            "updated": 7
+          }
+        },
+        "actual_changes": {
+          "invoices": {
+            "updated": 1
+          },
+          "invoice_items": {
+            "updated": 7
+          }
+        },
+        "direct_rows": 1,
+        "actual_total_rows": 8,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 74.38,
+        "error": null
+      },
+      {
+        "id": "B14",
+        "note": "non-key update: no cascade",
+        "in_scope": true,
+        "level": "MODERATE",
+        "predicted_sqlstate": null,
+        "actual_sqlstate": null,
+        "predicted_changes": {
+          "customers": {
+            "updated": 1
+          }
+        },
+        "actual_changes": {
+          "customers": {
+            "updated": 1
+          }
+        },
+        "direct_rows": 1,
+        "actual_total_rows": 1,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 43.83,
+        "error": null
+      },
+      {
+        "id": "B15",
+        "note": "plain insert",
+        "in_scope": true,
+        "level": "CONTAINED",
+        "predicted_sqlstate": null,
+        "actual_sqlstate": null,
+        "predicted_changes": {
+          "products": {
+            "inserted": 1
+          }
+        },
+        "actual_changes": {
+          "products": {
+            "inserted": 1
+          }
+        },
+        "direct_rows": 1,
+        "actual_total_rows": 1,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 56.05,
+        "error": null
+      },
+      {
+        "id": "B16",
+        "note": "duplicate key -> 23505",
+        "in_scope": true,
+        "level": "CONTAINED",
+        "predicted_sqlstate": "23505",
+        "actual_sqlstate": "23505",
+        "predicted_changes": {},
+        "actual_changes": {},
+        "direct_rows": 1,
+        "actual_total_rows": 0,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 36.72,
+        "error": null
+      },
+      {
+        "id": "B17",
+        "note": "missing parent product -> 23503",
+        "in_scope": true,
+        "level": "CONTAINED",
+        "predicted_sqlstate": "23503",
+        "actual_sqlstate": "23503",
+        "predicted_changes": {},
+        "actual_changes": {},
+        "direct_rows": 1,
+        "actual_total_rows": 0,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 41.9,
+        "error": null
+      },
+      {
+        "id": "B18",
+        "note": "missing parent invoice -> 23503",
+        "in_scope": true,
+        "level": "CONTAINED",
+        "predicted_sqlstate": "23503",
+        "actual_sqlstate": "23503",
+        "predicted_changes": {},
+        "actual_changes": {},
+        "direct_rows": 1,
+        "actual_total_rows": 0,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 42.69,
+        "error": null
+      },
+      {
+        "id": "B19",
+        "note": "update to a missing parent -> 23503",
+        "in_scope": true,
+        "level": "CONTAINED",
+        "predicted_sqlstate": "23503",
+        "actual_sqlstate": "23503",
+        "predicted_changes": {},
+        "actual_changes": {},
+        "direct_rows": 1,
+        "actual_total_rows": 0,
+        "changes_match": true,
+        "failure_match": true,
+        "preview_ms": 44.03,
+        "error": null
+      },
+      {
+        "id": "B20",
+        "note": "CHECK constraint 23514",
+        "in_scope": false,
+        "level": "CONTAINED",
+        "predicted_sqlstate": null,
+        "actual_sqlstate": "23514",
+        "predicted_changes": {
+          "invoice_items": {
+            "updated": 1
+          }
+        },
+        "actual_changes": {},
+        "direct_rows": 1,
+        "actual_total_rows": 0,
+        "changes_match": false,
+        "failure_match": false,
+        "preview_ms": 45.79,
+        "error": null
+      },
+      {
+        "id": "B21",
+        "note": "trigger raises P0001",
+        "in_scope": false,
+        "level": "CONTAINED",
+        "predicted_sqlstate": null,
+        "actual_sqlstate": "P0001",
+        "predicted_changes": {
+          "invoice_items": {
+            "updated": 1
+          }
+        },
+        "actual_changes": {},
+        "direct_rows": 1,
+        "actual_total_rows": 0,
+        "changes_match": false,
+        "failure_match": false,
+        "preview_ms": 60.21,
+        "error": null
+      }
+    ]
+  }
+}

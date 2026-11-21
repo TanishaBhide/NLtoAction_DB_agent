@@ -131,7 +131,9 @@ def executor():
 def test_read_runs_in_read_only_transaction_and_rolls_back(executor):
     result = executor.execute(plan("read", "SELECT customer_id, country FROM customers WHERE country = 'France' LIMIT 100"), ALLOW)
     assert result.status == "read_only"
-    assert result.rows == [["12494", "France"]]
+    # works on the 13-row sample (one French customer) and on the 2,000-row dataset alike
+    assert ["12494", "France"] in result.rows
+    assert result.row_count == scalar("SELECT COUNT(*) FROM customers WHERE country = 'France'")
     statements = [step.sql for step in result.tx_log]
     assert statements[0].startswith("BEGIN") and statements[0].endswith("READ ONLY")
     assert statements[-1] == "ROLLBACK"

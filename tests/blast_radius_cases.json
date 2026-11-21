@@ -1,0 +1,26 @@
+{
+  "note": "Writes for evaluating the Week 9 blast-radius preview against the Week 1 sample data. Ground truth is measured by executing each write in a transaction, diffing full-table snapshots, and rolling back. 'scope' marks failures the preview is not designed to predict (CHECK constraints, trigger logic).",
+  "cases": [
+    {"id": "B01", "sql": "UPDATE invoice_items SET quantity = 12 WHERE invoice_no = '536365' AND stock_code = '85123A'", "note": "single-row update"},
+    {"id": "B02", "sql": "UPDATE invoice_items SET quantity = 1 WHERE quantity > 5", "note": "bulk update, most of the table"},
+    {"id": "B03", "sql": "DELETE FROM invoice_items WHERE invoice_no = '536414'", "note": "plain delete"},
+    {"id": "B04", "sql": "DELETE FROM invoices WHERE invoice_no = '536365'", "note": "ON DELETE CASCADE to 7 line items"},
+    {"id": "B05", "sql": "DELETE FROM invoices WHERE invoice_no = '536414'", "note": "ON DELETE CASCADE to 1 line item"},
+    {"id": "B06", "sql": "DELETE FROM invoices WHERE customer_id IS NULL", "note": "two invoices, cascade to their items"},
+    {"id": "B07", "sql": "DELETE FROM customers WHERE customer_id = '17850'", "note": "ON DELETE SET NULL on invoices"},
+    {"id": "B08", "sql": "DELETE FROM customers WHERE country = 'United Kingdom'", "note": "two customers, SET NULL on two invoices"},
+    {"id": "B09", "sql": "DELETE FROM products WHERE stock_code = '84406B'", "note": "ON DELETE RESTRICT -> 23503"},
+    {"id": "B10", "sql": "DELETE FROM products WHERE description IS NULL", "note": "RESTRICT through a NULL-description product -> 23503"},
+    {"id": "B11", "sql": "DELETE FROM products WHERE stock_code NOT IN (SELECT stock_code FROM invoice_items)", "note": "matches nothing"},
+    {"id": "B12", "sql": "UPDATE customers SET customer_id = '99999' WHERE customer_id = '17850'", "note": "ON UPDATE CASCADE to invoices"},
+    {"id": "B13", "sql": "UPDATE invoices SET invoice_no = '536999' WHERE invoice_no = '536365'", "note": "ON UPDATE CASCADE to 7 line items, triggers fire"},
+    {"id": "B14", "sql": "UPDATE customers SET country = 'Spain' WHERE customer_id = '12494'", "note": "non-key update: no cascade"},
+    {"id": "B15", "sql": "INSERT INTO products (stock_code, description) VALUES ('90001', 'BLUE MUG')", "note": "plain insert"},
+    {"id": "B16", "sql": "INSERT INTO products (stock_code, description) VALUES ('85123A', 'DUPLICATE')", "note": "duplicate key -> 23505"},
+    {"id": "B17", "sql": "INSERT INTO invoice_items (invoice_no, stock_code, quantity, unit_price) VALUES ('536365', 'NOPE', 1, 1.00)", "note": "missing parent product -> 23503"},
+    {"id": "B18", "sql": "INSERT INTO invoice_items (invoice_no, stock_code, quantity, unit_price) VALUES ('999999', '85123A', 1, 1.00)", "note": "missing parent invoice -> 23503"},
+    {"id": "B19", "sql": "UPDATE invoice_items SET stock_code = 'NOPE' WHERE invoice_item_id = 1", "note": "update to a missing parent -> 23503"},
+    {"id": "B20", "sql": "UPDATE invoice_items SET quantity = 0 WHERE invoice_no = '536365' AND stock_code = '71053'", "note": "CHECK constraint 23514", "scope": "out"},
+    {"id": "B21", "sql": "UPDATE invoice_items SET unit_price = -5 WHERE invoice_no = '536365' AND stock_code = '22752'", "note": "trigger raises P0001", "scope": "out"}
+  ]
+}

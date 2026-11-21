@@ -35,7 +35,7 @@ if (-not (Test-Path ".venv\Scripts\python.exe")) {
 }
 
 $env:DATABASE_URL = "postgresql://agent:agent@localhost:55432/online_retail_db"
-.venv\Scripts\python database\setup_demo_db.py
+.venv\Scripts\python database\setup_demo_db.py --dataset sample   # the demo scenarios are written for the 13-row sample
 
 if ($Interactive) {
     .venv\Scripts\python database\react_agent.py --interactive

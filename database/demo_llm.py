@@ -20,6 +20,8 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_SCENARIOS = Path(__file__).with_name("demo_scenarios.json")
+# Week 8/9 demo requests; the scripted planner knows both files by default.
+EXTRA_SCENARIOS = [Path(__file__).with_name("demo_scenarios_week8_9.json")]
 ATTEMPT_RE = re.compile(r"Previous attempts: (\d+)")
 
 
@@ -34,10 +36,12 @@ def load_scenarios(path: Path | str | None = None) -> list[dict[str, Any]]:
 class ScriptedLLMClient:
     def __init__(self, scenarios_path: Path | str | None = None) -> None:
         self.scripts: dict[str, list[dict[str, Any]]] = {}
-        for scenario in load_scenarios(scenarios_path):
-            for turn in scenario.get("turns", [scenario]):
-                if turn.get("attempts"):
-                    self.scripts[normalize(turn["request"])] = turn["attempts"]
+        paths = [scenarios_path] if scenarios_path else [DEFAULT_SCENARIOS, *(p for p in EXTRA_SCENARIOS if p.exists())]
+        for path in paths:
+            for scenario in load_scenarios(path):
+                for turn in scenario.get("turns", [scenario]):
+                    if turn.get("attempts"):
+                        self.scripts[normalize(turn["request"])] = turn["attempts"]
         self.calls: list[dict[str, Any]] = []
 
     def complete(self, system: str, user: str, tool_schema: dict, *, context: str | None = None) -> dict:

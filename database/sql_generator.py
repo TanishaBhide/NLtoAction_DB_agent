@@ -264,6 +264,11 @@ def main(argv: Iterable[str] | None = None) -> int:
     parser.add_argument("--interactive", action="store_true", help="Start a session-aware REPL")
     parser.add_argument("--explain", action="store_true", help="Run plain EXPLAIN when PostgreSQL is configured")
     args = parser.parse_args(list(argv) if argv is not None else None)
+    try:
+        from .env import load_env
+    except ImportError:
+        from env import load_env
+    load_env()  # GROQ_API_KEY etc. from .env
     if not args.interactive and not args.text:
         parser.error("text is required unless --interactive is used")
 
